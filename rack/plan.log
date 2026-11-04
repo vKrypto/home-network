@@ -1,0 +1,18 @@
+need to build a  three.js drawaing for a rack (for server racks or similar structures). The drawing should include the following features:)
+
+theme: fully moduler/portable
+leg: steel square: [4inch * 2 inch]]
+parts:
+1) legs:: a square vertical supports, (2 feet rods, with small wholes for screws, and one side will be almost open with small metal strip to hold the all layer of rods together, purpose to use rod's hollow area to pass wires.)
+2) shelves: base plates: a rectangular plate that connects the legs with screws, for that we will have a plate arround that plat and a screw can be tight from that plate to the legs.
+3) base plates will be two types: one no wholes and one with lot of wholes for ventilation and cable management.
+4) top cover: we will use rectanguler.
+3) legs will be design to get joint on top of each others
+5) we will use points (name, to denote the connection points) everywhere.
+6) the drawing can be viewed as 3d 
+
+need to add few items in rack:
+0) one option to remove accessories from the rack easily.
+1) Cable management hooks: Small hooks attached to the sides of the legs for organizing and routing cables.
+2) Power strip mount: A designated area on one of the shelves to securely mount a power with proper cable management.
+3) need to add one power mount point on the back side. 
