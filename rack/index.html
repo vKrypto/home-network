@@ -1,0 +1,1501 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modular Rack</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { display: flex; font: 13px/1.4 system-ui, sans-serif; color: #1d2733; background: #e9edf1; }
+  #view { position: relative; flex: 1; min-width: 0; overflow: hidden; }
+  #view canvas { display: block; }
+  #labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .pt { position: absolute; left: 0; top: 0; padding: 0 4px; border-radius: 3px; color: #fff; font: 600 10px/15px ui-monospace, monospace; white-space: nowrap; }
+  .pt.hot { outline: 2px solid #111; font-size: 13px; line-height: 19px; z-index: 2; }
+  #detail { position: absolute; right: 0; top: 0; bottom: 0; border-left: 2px solid #1d2733; overflow: hidden; touch-action: none; }
+  #detail[hidden] { display: none; }
+  #dHead { position: absolute; left: 0; right: 0; top: 0; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 8px; background: rgba(255,255,255,.92); border-bottom: 1px solid #cfd6dd; }
+  #dHead > div { flex: 1 1 100%; }
+  #dHead b { display: block; font-family: ui-monospace, monospace; }
+  #dHead span { color: #5a6875; font-size: 12px; }
+  .dim { position: absolute; left: 0; top: 0; padding: 0 4px; background: #fff; border: 1px solid #b42318; border-radius: 3px; color: #b42318; font: 600 11px/16px ui-monospace, monospace; white-space: nowrap; pointer-events: none; }
+  #dFacts { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 3; padding: 6px 8px; background: rgba(255,255,255,.92); border: 1px solid #cfd6dd; border-radius: 4px; font-size: 12px; pointer-events: none; }
+  #dFacts b { display: block; margin-bottom: 2px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: #5a6875; }
+  #dFacts:empty { display: none; }
+  aside { width: 290px; flex: none; padding: 14px; overflow-y: auto; background: #fff; border-left: 1px solid #cfd6dd; }
+  h1 { margin: 0 0 2px; font-size: 17px; }
+  h2 { margin: 18px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #5a6875; }
+  .sub { margin: 0; color: #5a6875; }
+  label.f { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0; }
+  select, input[type=number] { width: 118px; padding: 3px 5px; font: inherit; }
+  input[type=range] { width: 118px; }
+  .btns { display: flex; gap: 4px; }
+  button { flex: 1; padding: 5px 0; font: inherit; background: #f1f4f7; border: 1px solid #c3ccd5; border-radius: 4px; cursor: pointer; }
+  button:hover { background: #e2e8ee; }
+  .cat { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+  .sw { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+  tr.pick { cursor: pointer; }
+  tr.pick:hover, tr.pick:focus { background: #eaf1f8; outline: none; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 2px 0; border-bottom: 1px solid #edf0f3; }
+  td + td, th + th { text-align: right; }
+  th { padding: 2px 0; font-weight: 600; text-align: left; color: #5a6875; border-bottom: 1px solid #cfd6dd; }
+  tr.total td { font-weight: 700; border-top: 2px solid #cfd6dd; border-bottom: 0; }
+  td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  #list { max-height: 260px; overflow-y: auto; border: 1px solid #e1e6eb; border-radius: 4px; }
+  #list em { font-style: normal; font-weight: 700; color: #0f766e; }
+  #list summary { padding: 5px 6px; font-weight: 600; cursor: pointer; background: #f4f6f8; border-bottom: 1px solid #e1e6eb; }
+  #list div { padding: 3px 6px; cursor: pointer; border-bottom: 1px solid #f0f3f5; }
+  #list div:hover, #list div.on { background: #eaf1f8; }
+  #list b { font-family: ui-monospace, monospace; font-size: 11px; display: block; }
+  #list span { color: #5a6875; font-size: 11px; }
+  @media (max-width: 720px) {
+    body { flex-direction: column; }
+    #view { flex: none; height: 55vh; }
+    aside { width: 100%; flex: 1; border-left: 0; border-top: 1px solid #cfd6dd; }
+  }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="view"><div id="labels"><div class="pt hot" id="mLabel"></div></div>
+  <div id="detail" hidden>
+    <div id="dHead">
+      <div><b id="dName"></b><span id="dDesc"></span></div>
+      <button id="dContext">Show with its part</button><button id="dDims">Hide dimensions</button><button id="dClose" aria-label="Close zoom view">Close</button>
+    </div>
+    <div class="pt hot" id="dLabel"></div>
+    <div id="dDimLabels"></div>
+    <div id="dFacts"></div>
+  </div>
+</div>
+<aside>
+  <h1>Modular rack</h1>
+  <p class="sub" id="size"></p>
+  <p class="sub" id="weightTop"></p>
+
+  <h2>Configuration</h2>
+  <label class="f">Stacked leg modules <input id="modules" type="number" min="1" max="4" value="2"></label>
+  <label class="f">Shelves per module
+    <select id="shelves"><option>1</option><option>2</option><option>3</option><option selected>4</option></select></label>
+  <label class="f">Shelf type
+    <select id="pattern">
+      <option value="alt">Alternating</option>
+      <option value="solid">All solid</option>
+      <option value="vent">All vented</option>
+    </select></label>
+  <label class="f">Width (in) <input id="width" type="number" min="14" max="48" value="24"></label>
+  <label class="f">Depth (in) <input id="depth" type="number" min="10" max="36" value="18"></label>
+
+  <h2>Material</h2>
+  <label class="f">Material type
+    <select id="material">
+      <option value="7850" selected>Mild steel</option>
+      <option value="8000">Stainless steel</option>
+      <option value="2700">Aluminium</option>
+      <option value="custom">Custom</option>
+    </select></label>
+  <label class="f">Density (kg/m³) <input id="density" type="number" min="100" max="25000" step="10" value="7850"></label>
+
+  <label class="f">Shelf sheet thickness
+    <select id="plateThk">
+      <option value="0.8">0.8 mm</option><option value="1" >1 mm</option><option value="1.2" selected>1.2 mm</option>
+      <option value="1.5">1.5 mm</option><option value="2">2 mm</option><option value="3">3 mm</option>
+    </select></label>
+
+  <h2>View</h2>
+  <label class="f">Show
+    <select id="focus">
+      <option value="all">Full assembly</option>
+      <option value="c:layout">All components laid out</option>
+      <optgroup label="Individual components">
+        <option value="c:leg">Leg</option>
+        <option value="c:plateSolid">Base plate: solid</option>
+        <option value="c:plateVent">Base plate: vented</option>
+        <option value="c:frame">Shelf frame</option>
+        <option value="c:coverPlate">Top cover plate</option>
+        <option value="c:tongue">Joint tongue</option>
+        <option value="c:foot">Base socket</option>
+        <option value="c:screw">Fixing screw</option>
+        <option value="c:bracket">L-bracket</option>
+        <option value="c:hook">Cable hook</option>
+        <option value="c:strip">Power strip with tray</option>
+        <option value="c:inlet">Back power mount</option>
+        <option value="c:server">Rack server (full size)</option>
+        <option value="c:switch">Network switch (full size)</option>
+        <option value="c:monitor">Side monitor</option>
+      </optgroup>
+      <optgroup label="Fitted parts, with connection points">
+        <option value="leg">Leg</option>
+        <option value="solid">Solid shelf</option>
+        <option value="vent">Vented shelf</option>
+        <option value="cover">Top cover</option>
+        <option value="foot">Base socket</option>
+        <option value="hook">Cable hook</option>
+        <option value="strip">Power strip mount</option>
+        <option value="inlet">Back power mount</option>
+        <option value="server">Rack server</option>
+        <option value="switch">Network switch</option>
+        <option value="monitor">Side monitor</option>
+      </optgroup>
+    </select></label>
+  <label class="f">Explode <input id="explode" type="range" min="0" max="1" step="0.01" value="0"></label>
+  <div class="btns">
+    <button data-v="iso">3D</button><button data-v="front">Front</button>
+    <button data-v="back">Back</button><button data-v="side">Side</button><button data-v="top">Top</button>
+  </div>
+
+  <h2>Accessories</h2>
+  <label class="cat"><input type="checkbox" data-acc="hook" checked>Cable hooks on legs</label>
+  <label class="cat"><input type="checkbox" data-acc="strip" checked>Power strip mount</label>
+  <label class="cat"><input type="checkbox" data-acc="inlet" checked>Back power mount</label>
+  <label class="f">Power strip on shelf <select id="stripShelf"></select></label>
+
+  <label class="cat"><input type="checkbox" data-acc="server" checked>Rack servers (1 per leg module)</label>
+  <p class="sub" id="serverNote"></p>
+  <label class="cat"><input type="checkbox" data-acc="switch" checked>Network switches (1 per leg module)</label>
+  <label class="cat"><input type="checkbox" data-acc="monitor" checked>Side monitor</label>
+  <label class="f">Monitor size
+    <select id="monSize"><option value="14">14 in</option><option value="16" selected>16 in</option><option value="18">18 in</option></select></label>
+  <label class="f">Monitor side
+    <select id="monSide"><option value="1">Right</option><option value="-1">Left</option></select></label>
+  <p class="sub" id="powerNote"></p>
+  <label class="cat"><input type="checkbox" id="accAll">Remove all accessories</label>
+
+  <h2>Connection point labels</h2>
+  <div id="cats"></div>
+
+  <h2>Parts (click to zoom and isolate)</h2>
+  <p class="sub">Counts and weights leave out accessories and their fixings.</p>
+  <table id="bom"></table>
+
+  <h2>Item list (click to zoom and isolate)</h2>
+  <div id="list"></div>
+</aside>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// All dimensions in inches.
+const LEG_W = 4, LEG_D = 2, LEG_H = 24;   // 4x2 section, 2 ft long
+const T = 0.12;                           // steel wall thickness
+const LIP = 0.3;                          // return lip on the open face
+const STRIP_H = 2;                        // tie strips across the open face
+const STRIP_Y = [3, 12, 21];              // strip centres from leg bottom
+const SPIGOT = 2;                         // joint tongue length
+const CLEAR = 0.04;                       // spigot-to-socket clearance
+const SKIRT = 1.5;                        // frame around each shelf plate
+const HOLES = Array.from({ length: 12 }, (_, i) => 1 + i * 2); // 2 in pitch
+const SHELF_HOLE = { 1: [11], 2: [3, 15], 3: [3, 11, 19], 4: [3, 9, 15, 21] };
+// With 4 shelves the top slot is too short for a server under the cover, so it sits one lower.
+const serverShelf = n => (n === 4 ? 2 : n - 1);
+const CORNERS = [['FL', -1, 1], ['FR', 1, 1], ['BL', -1, -1], ['BR', 1, -1]];
+const CATS = {
+  joint: { name: 'Leg-to-leg joints (J)', color: '#c2410c' },
+  foot:  { name: 'Base sockets (F)',      color: '#6d28d9' },
+  shelf: { name: 'Shelf frame screws (S)', color: '#0f766e' },
+  cover: { name: 'Top cover (C)',         color: '#b91c1c' },
+  leg:   { name: 'Leg ends (L)',          color: '#1d4ed8' },
+  hook:  { name: 'Cable hooks (H)',       color: '#a16207' },
+  power: { name: 'Power mounts (P)',      color: '#be185d' },
+  server: { name: 'Rack servers (V)',     color: '#0369a1' },
+  switch: { name: 'Network switches (W)', color: '#4338ca' },
+  monitor: { name: 'Side monitor (D)',    color: '#047857' },
+};
+const catOn = { joint: true, foot: true, shelf: false, cover: true, leg: false, hook: false, power: true, server: true, switch: true, monitor: true };
+const accOn = { hook: true, strip: true, inlet: true, server: true, switch: true, monitor: true };
+
+const $ = id => document.getElementById(id);
+const view = $('view'), labelsEl = $('labels'), mLabelEl = $('mLabel');
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+view.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#e9edf1');
+const camera = new THREE.PerspectiveCamera(35, 1, 1, 2000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+scene.add(new THREE.HemisphereLight('#ffffff', '#8a95a0', 1.6));
+const sun = new THREE.DirectionalLight('#ffffff', 1.8);
+sun.position.set(40, 90, 60);
+scene.add(sun);
+const fill = new THREE.DirectionalLight('#ffffff', 0.6);
+fill.position.set(-60, 30, -50);
+scene.add(fill);
+
+const std = (color, m = 0.45, r = 0.55) =>
+  new THREE.MeshStandardMaterial({ color, metalness: m, roughness: r, side: THREE.DoubleSide });
+const MAT = {
+  leg: std('#d3d7db', 0.25, 0.4), legStrip: std('#aeb4ba', 0.25, 0.45), spigot: std('#b08d57'),
+  solid: std('#4f7cac'), vent: std('#3f9d8f'), frame: std('#39556f'),
+  cover: std('#c9a24b'), foot: std('#6b6f85'), hole: std('#14181c', 0, 0.9), screw: std('#e6e9ec', 0.7, 0.3),
+  hook: std('#d9a514', 0.3, 0.5), knob: std('#d9480f', 0.1, 0.6), tray: std('#2f3b46'), strip: std('#f2f2ee', 0, 0.6),
+  panel: std('#30363d'), screen: std('#3b6ea5', 0, 0.2), cord: { server: std('#111418', 0, 0.8), switch: std('#111418', 0, 0.8), monitor: std('#111418', 0, 0.8) }, cable: std('#111418', 0, 0.8), power: std('#dc2626', 0, 0.5),
+  silver: std('#c4c9ce', 0.55, 0.4), silverDark: std('#8f969c', 0.55, 0.45), bay: std('#1b1f23', 0.3, 0.6), carrier: std('#33393f', 0.3, 0.55),
+  ring: std('#101316', 0.2, 0.5), pink: std('#b4587f', 0.1, 0.5), earLabel: std('#2563a8', 0.1, 0.5), led: new THREE.MeshBasicMaterial({ color: '#22c55e' }),
+};
+
+let root = null, parts = [], points = [], hot = null, grid = null, cable = null, cords = [], catalog = null, catItems = [], counts = {}, modules = 1;
+// Every physical piece is an item, so one screw or one plate can be isolated by itself.
+let listGroups = [], items = [], cur = null, collecting = false, shelfLabel = '';
+const ITEM_KINDS = { leg: 'Legs', foot: 'Base sockets', tongue: 'Joint tongues', plateSolid: 'Solid base plates', plateVent: 'Vented base plates', frame: 'Shelf frames',
+  cover: 'Top cover', screw: 'Fixing screws', bracket: 'L-brackets', hook: 'Cable hooks', strip: 'Power strip mount', inlet: 'Back power mount',
+  server: 'Rack servers', switch: 'Network switches', monitor: 'Side monitor' };
+function partOf(g) { while (g && !parts.includes(g)) g = g.parent; return g; }
+function newItem(g, name, kind, desc = '') {
+  if (!collecting) return null;
+  const it = { name, kind, desc, group: partOf(g), meshes: [] };
+  items.push(it);
+  return it;
+}
+function begin(g, name, kind, desc) { cur = newItem(g, name, kind, desc); }
+const track = m => { if (cur) cur.meshes.push(m); return m; };
+const box = (g, w, h, d, x, y, z, mat) => {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y, z);
+  g.add(m);
+  track(m);
+  return m;
+};
+const cyl = (g, r, len, pos, axis, mat) => {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 14), mat);
+  if (axis === 'x') m.rotation.z = Math.PI / 2;
+  if (axis === 'z') m.rotation.x = Math.PI / 2;
+  m.position.copy(pos);
+  g.add(m);
+  track(m);
+};
+const v3 = (x, y, z) => new THREE.Vector3(x, y, z);
+
+function addPart(tag, explode, acc = null) {
+  const g = new THREE.Group();
+  g.userData = { tag, explode, acc };
+  root.add(g);
+  parts.push(g);
+  return g;
+}
+function addPoint(group, name, desc, cat, pos) {
+  const marker = new THREE.Mesh(
+    new THREE.SphereGeometry(0.22, 12, 10),
+    new THREE.MeshBasicMaterial({ color: CATS[cat].color, depthTest: false, transparent: true }));
+  marker.renderOrder = 5;
+  marker.position.copy(pos);
+  group.add(marker);
+  const el = document.createElement('div');
+  el.className = 'pt';
+  el.textContent = name;
+  el.style.background = CATS[cat].color;
+  labelsEl.append(el);
+  points.push({ name, desc, cat, group, marker, el });
+  // Name the screw at this point after it.
+  let best = null, bestD = 0.25;
+  for (const it of items) {
+    if (it.kind !== 'screw' || it.named || it.group !== group) continue;
+    const d = it.pos.distanceTo(pos);
+    if (d < bestD) { best = it; bestD = d; }
+  }
+  if (best) { best.name = `Screw ${name}`; best.desc = desc; best.named = true; }
+}
+
+// The one fixing used everywhere: same thread and length, hand-turned knob head.
+// Sizes in inches: M6 x 1.0 thread, 16 mm under the head, 16 mm knurled knob, 4 mm hex socket.
+const MM = 1 / 25.4;
+const SCREW = { major: 3 * MM, minor: 3 * MM - 0.6134 * MM, pitch: 1 * MM, length: 16 * MM, knobR: 8 * MM, knobH: 6 * MM, collarR: 4.5 * MM, collarH: 1.2 * MM, hexAF: 4 * MM };
+
+// A true helical thread: a ring of vertices per row, radius following the V profile.
+function threadGeometry() {
+  const { major, minor, pitch, length, knobH, collarH } = SCREW;
+  const seg = 30, start = knobH / 2 + collarH, end = knobH / 2 + length, rows = Math.round((end - start) / pitch * 5);
+  const chamfer = major - minor + 0.3 * MM;
+  const pos = [], idx = [];
+  for (let r = 0; r <= rows; r++) {
+    const y = start + (end - start) * r / rows;
+    for (let k = 0; k < seg; k++) {
+      const th = k / seg * Math.PI * 2;
+      const f = ((y / pitch - th / (Math.PI * 2)) % 1 + 1) % 1;
+      let rad = minor + (major - minor) * (1 - Math.abs(2 * f - 1));
+      rad = Math.min(rad, minor - 0.3 * MM + (end - y) / chamfer * (major - minor + 0.3 * MM));  // chamfered tip
+      pos.push(Math.cos(th) * rad, y, Math.sin(th) * rad);
+    }
+  }
+  for (let r = 0; r < rows; r++) for (let k = 0; k < seg; k++) {
+    const a = r * seg + k, b = r * seg + (k + 1) % seg, c = a + seg, d = b + seg;
+    idx.push(a, c, b, b, c, d);
+  }
+  const tip = pos.length / 3;                 // flat end
+  pos.push(0, end, 0);
+  for (let k = 0; k < seg; k++) idx.push(rows * seg + k, tip, rows * seg + (k + 1) % seg);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
+// Knob: fluted grip around the rim, hex socket in the middle, slightly chamfered edges.
+function knobGeometry() {
+  const { knobR, knobH, hexAF } = SCREW;
+  const flutes = 18, pts = flutes * 6, shape = new THREE.Shape();
+  for (let k = 0; k <= pts; k++) {
+    const th = k / pts * Math.PI * 2;
+    const rad = knobR * (0.95 + 0.05 * Math.cos(th * flutes));
+    k ? shape.lineTo(Math.cos(th) * rad, Math.sin(th) * rad) : shape.moveTo(Math.cos(th) * rad, Math.sin(th) * rad);
+  }
+  const hexR = hexAF / 2 / Math.cos(Math.PI / 6), hole = new THREE.Path();
+  for (let k = 6; k >= 0; k--) {
+    const th = k / 6 * Math.PI * 2, x = Math.cos(th) * hexR, y = Math.sin(th) * hexR;
+    k === 6 ? hole.moveTo(x, y) : hole.lineTo(x, y);
+  }
+  shape.holes.push(hole);
+  const bevel = 0.4 * MM;
+  const g = new THREE.ExtrudeGeometry(shape, { depth: knobH - 2 * bevel, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelOffset: -bevel, bevelSegments: 1 });
+  g.rotateX(-Math.PI / 2);
+  g.translate(0, -knobH / 2 + bevel, 0);
+  return g;
+}
+const screwGeo = {};
+function getScrewGeo() {
+  if (screwGeo.thread) return screwGeo;
+  const { collarR, collarH, knobH, hexAF, minor } = SCREW;
+  screwGeo.thread = threadGeometry();
+  screwGeo.knob = knobGeometry();
+  screwGeo.collar = new THREE.CylinderGeometry(collarR, collarR, collarH, 24);
+  screwGeo.collar.translate(0, knobH / 2 + collarH / 2, 0);
+  screwGeo.core = new THREE.CylinderGeometry(minor, minor, collarH * 1.5, 24);
+  screwGeo.core.translate(0, knobH / 2 + collarH, 0);
+  // Bottom of the socket: recessed 3 mm from the knob face.
+  screwGeo.socket = new THREE.CylinderGeometry(hexAF / 2 / Math.cos(Math.PI / 6), hexAF / 2 / Math.cos(Math.PI / 6), knobH - 3 * MM, 6);
+  screwGeo.socket.rotateY(Math.PI / 2);
+  screwGeo.socket.translate(0, 1.5 * MM, 0);
+  return screwGeo;
+}
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
+function screw(g, pos, axis, out) {
+  const prev = cur;
+  cur = newItem(g, 'Screw', 'screw');
+  if (cur) cur.pos = pos.clone();
+  const dir = v3(0, 0, 0);
+  dir[axis] = out;
+  const G = getScrewGeo();
+  for (const [geo, mat] of [[G.thread, MAT.screw], [G.core, MAT.screw], [G.collar, MAT.screw], [G.knob, MAT.knob], [G.socket, MAT.bay]]) {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.copy(pos);
+    m.quaternion.setFromUnitVectors(Y_AXIS, dir);
+    g.add(m);
+    track(m);
+  }
+  cur = prev;
+}
+const thumb = screw;
+
+// Shared L-bracket for the strip, server and switch. Inverted when hung under a shelf.
+let bare = false;   // parts view: draw a part without its loose brackets and tongue
+function bracket(g, s, x, y, zc, hung = false) {
+  if (bare) return;
+  const prev = cur;
+  cur = newItem(g, `${prev ? prev.name : ''} bracket ${s < 0 ? 'L' : 'R'}`, 'bracket', `Holds ${prev ? prev.name : 'equipment'} to its shelf`);
+  const dir = hung ? -1 : 1;
+  box(g, 0.1, 1.2, 3, s * (x + 0.05), y + dir * 0.6, zc, MAT.hook);
+  box(g, 0.8, 0.1, 3, s * (x + 0.45), y + dir * 0.05, zc, MAT.hook);
+  screw(g, v3(s * (x + 0.5), y + dir * 0.2, zc), 'y', -dir);
+  cur = prev;
+}
+
+// Shared 4 in joint tongue: three-sided, so the wire channel stays clear.
+function buildTongue(g, cx, cz, sz, y) {
+  const prev = cur;
+  cur = newItem(g, `${prev ? prev.name : ''} tongue`, 'tongue', `Joins ${prev ? prev.name : 'this part'} to the next part`);
+  const w = LEG_W - 2 * T - CLEAR, d = LEG_D - 2 * T - CLEAR;
+  box(g, w, 4, T, cx, y, cz - sz * (d - T) / 2, MAT.spigot);
+  for (const s of [-1, 1]) box(g, T, 4, d, cx + s * (w - T) / 2, y, cz, MAT.spigot);
+  for (const dy of [-1, 1]) cyl(g, 0.13, 0.05, v3(cx, y + dy, cz - sz * (d - T) / 2), 'z', MAT.hole);
+  cur = prev;
+}
+
+function buildHook(g, sx, y, z, a) {
+  box(g, T, 2.4, 1.2, sx * (a + T / 2), y, z, MAT.hook);
+  box(g, 1.3, 0.25, 0.6, sx * (a + 0.65), y - 0.9, z, MAT.hook);
+  box(g, 0.22, 0.8, 0.6, sx * (a + 1.3), y - 0.6, z, MAT.hook);
+  thumb(g, v3(sx * (a + 0.2), y, z), 'x', -sx);
+}
+
+function buildStrip(g, top, W, D) {
+  const b = D / 2, ax = W / 2 - LEG_W;
+  const L = Math.min(14, 2 * ax - 2), zc = -(b - 2.2);
+  box(g, L + 2, 0.08, 3.4, 0, top + 0.04, zc, MAT.tray);          // marked mounting area
+  box(g, L, 1.3, 2, 0, top + 0.73, zc, MAT.strip);                // the power strip
+  const n = Math.max(1, Math.floor(L / 2.2));
+  for (let i = 0; i < n; i++) {
+    const x = (i - (n - 1) / 2) * 2.2;
+    cyl(g, 0.55, 0.04, v3(x, top + 1.39, zc), 'y', MAT.panel);
+  }
+  for (const s of [-1, 1]) bracket(g, s, L / 2, top + 0.08, zc);   // end clamps
+  box(g, L, 0.1, 0.1, 0, top + 0.95, zc - 1.4, MAT.hook);         // cable comb rail
+  box(g, L, 0.85, 0.08, 0, top + 0.5, zc - 1.4, MAT.tray);
+  for (let x = -L / 2; x <= L / 2 + 0.01; x += L / Math.max(1, Math.round(L / 1.2)))
+    box(g, 0.08, 0.5, 0.25, x, top + 1.2, zc - 1.4, MAT.hook);
+  const sockets = Array.from({ length: n }, (_, i) => (i - (n - 1) / 2) * 2.2);
+  return { clampX: L / 2 + 0.55, cableX: L / 2 - 0.5, zc, sockets };
+}
+
+// 2U, 12-bay server modelled on the reference photo: silver chassis, 4 x 3 large
+// drive carriers, a label ear on the left and a control panel ear on the right.
+const SERVER = { w: 17.54, h: 3.44, d: 27.5, ear: 0.68 };
+function buildServer(g, top, w, depth, zc) {
+  const h = SERVER.h, y = top + h / 2 + 0.1, front = zc + depth / 2, f = front + 0.05;
+  box(g, w, h, depth, 0, y, zc, MAT.silver);
+  box(g, w * 0.98, 0.02, depth * 0.28, 0, y + h / 2 + 0.01, front - depth * 0.14, MAT.silverDark);   // front lid panel
+  box(g, 1.6, 0.04, 0.7, 0, y + h / 2 + 0.03, front - depth * 0.36, MAT.bay);                        // lid latch
+  box(g, w, h, 0.1, 0, y, f, MAT.bay);                                                               // bay frame
+
+  // Drive carriers
+  const cols = 4, rows = 3, gap = 0.08, inW = w - 0.3, inH = h - 0.24;
+  const cw = (inW - gap * (cols - 1)) / cols, ch = (inH - gap * (rows - 1)) / rows;
+  for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) {
+    const x = -inW / 2 + cw / 2 + i * (cw + gap), yy = y + inH / 2 - ch / 2 - j * (ch + gap), z = f + 0.07;
+    box(g, cw, ch, 0.05, x, yy, z, MAT.carrier);
+    box(g, cw * 0.3, ch * 0.72, 0.03, x - cw * 0.3, yy, z + 0.03, MAT.silverDark);                   // release handle
+    box(g, cw * 0.2, ch * 0.12, 0.02, x - cw * 0.3, yy + ch * 0.18, z + 0.05, MAT.bay);
+    cyl(g, ch * 0.2, 0.03, v3(x + cw * 0.14, yy, z + 0.04), 'z', MAT.ring);                          // status ring
+    cyl(g, ch * 0.13, 0.03, v3(x + cw * 0.14, yy, z + 0.06), 'z', MAT.led);
+    box(g, cw * 0.11, ch * 0.62, 0.03, x + cw * 0.37, yy, z + 0.03, MAT.pink);                       // do-not-remove tab
+  }
+
+  // Mounting ears, only when the rack is wide enough to take them
+  const e = SERVER.ear;
+  if (w >= SERVER.w) for (const s of [-1, 1]) box(g, e, h, 0.14, s * (w / 2 + e / 2), y, f, MAT.silver);
+  if (w >= SERVER.w) {
+    const xl = -(w / 2 + e / 2), xr = w / 2 + e / 2, z = f + 0.09;
+    box(g, e * 0.6, 0.45, 0.02, xl, y - 0.9, z, MAT.earLabel);                                        // left label
+    box(g, e * 0.7, h * 0.72, 0.02, xr, y + 0.1, z, MAT.bay);                                         // control panel
+    cyl(g, 0.11, 0.03, v3(xr, y + 0.95, z + 0.02), 'z', MAT.led);                                     // power
+    box(g, e * 0.4, 0.05, 0.02, xr, y + 0.5, z + 0.02, MAT.led);
+    box(g, e * 0.4, 0.05, 0.02, xr, y + 0.3, z + 0.02, MAT.led);
+    box(g, e * 0.42, 0.2, 0.02, xr, y - 0.6, z + 0.02, MAT.silverDark);                               // USB
+  }
+
+  // Rear: dark panel with two power supplies and network ports
+  const r = zc - depth / 2 - 0.03;
+  box(g, w, h, 0.06, 0, y, r, MAT.bay);
+  for (const s of [0, 1]) box(g, 2.6, 1.5, 0.06, w / 2 - 1.5 - s * 2.8, y - 0.8, r - 0.05, MAT.silverDark);
+  for (let i = 0; i < 4; i++) box(g, 0.5, 0.45, 0.06, -w / 2 + 1 + i * 0.65, y - 1, r - 0.05, MAT.silver);
+
+  for (const s of [-1, 1]) bracket(g, s, w / 2, top, zc);
+}
+
+// 1U switch modelled on the reference photo: silver lid, black front, console port,
+// 48 network ports in four blocks of 12 and four uplink ports on the right.
+const SWITCH = { w: 17.3, h: 1.75, d: 10, ear: 0.75 };
+function buildSwitch(g, base, w, depth, zc, hangTop) {
+  const h = SWITCH.h, y = base + h / 2, front = zc + depth / 2, f = front + 0.04, z = f + 0.05;
+  box(g, w, h, depth, 0, y, zc, MAT.silver);
+  box(g, w, h, 0.08, 0, y, f, MAT.bay);
+  if (w >= SWITCH.w) for (const s of [-1, 1]) box(g, SWITCH.ear, h, 0.1, s * (w / 2 + SWITCH.ear / 2 - 0.1), y, f, MAT.bay);
+
+  box(g, 0.45, 0.4, 0.04, -w / 2 + 0.55, y - 0.3, z, MAT.silverDark);        // console port
+  box(g, 0.4, 0.3, 0.02, -w / 2 + 0.55, y + 0.4, z, MAT.earLabel);           // badge
+  const left = -w / 2 + 1.1, right = w / 2 - 1.75, groupGap = 0.16;
+  const pw = (right - left - groupGap * 3) / 48 * 2;
+  for (let c = 0; c < 24; c++) for (let row = 0; row < 2; row++) {
+    const x = left + pw * (c + 0.5) + groupGap * Math.floor(c / 6);
+    const py = y + (row ? 0.34 : -0.3);
+    box(g, pw * 0.88, 0.5, 0.03, x, py, z, MAT.silverDark);
+    box(g, pw * 0.62, 0.3, 0.03, x, py - 0.03, z + 0.02, MAT.bay);
+    box(g, pw * 0.25, 0.05, 0.02, x, py + 0.18, z + 0.03, MAT.led);
+  }
+  for (let c = 0; c < 2; c++) for (let row = 0; row < 2; row++) {            // uplinks
+    const x = w / 2 - 1.3 + c * 0.72, py = y + (row ? 0.34 : -0.3);
+    box(g, 0.62, 0.42, 0.03, x, py, z, MAT.silverDark);
+    box(g, 0.48, 0.24, 0.03, x, py, z + 0.02, MAT.bay);
+  }
+  for (const s of [-1, 1]) bracket(g, s, w / 2, hangTop !== undefined ? hangTop : base, zc, hangTop !== undefined);
+}
+
+// Grafana-style node exporter dashboard for the monitor. Simulated values, not read from a real server.
+const dashCanvas = document.createElement('canvas'); dashCanvas.width = 1280; dashCanvas.height = 720;
+const dashTex = new THREE.CanvasTexture(dashCanvas); dashTex.colorSpace = THREE.SRGBColorSpace; dashTex.anisotropy = 8;
+const dashMat = new THREE.MeshBasicMaterial({ map: dashTex, toneMapped: false });
+const DASH_N = 90;
+const walk = (mid, spread, min, max) => {
+  let v = mid; const next = () => { v += (mid - v) * 0.08 + (Math.random() - 0.5) * spread; if (Math.random() < 0.03) v += spread * 2.5 * Math.random(); return v = Math.min(max, Math.max(min, v)); };
+  const hist = []; for (let i = 0; i < DASH_N; i++) hist.push(next());
+  return { hist, tick() { hist.push(next()); hist.shift(); }, get now() { return hist[hist.length - 1]; } };
+};
+const DASH = { user: walk(24, 6, 2, 70), sys: walk(9, 3, 1, 30), iow: walk(3, 2, 0, 20), ram: walk(62, 1, 40, 90), cache: walk(21, 0.6, 8, 40),
+  rx: walk(180, 70, 2, 900), tx: walk(70, 40, 1, 600), rd: walk(45, 30, 0, 400), wr: walk(85, 35, 0, 400), load: walk(1.9, 0.3, 0.1, 8) };
+let dashLast = 0, dashUp = 1987200;
+function drawDash(now) {
+  if (now - dashLast < 1000 && dashLast) return;
+  dashLast = now; dashUp += 1;
+  Object.values(DASH).forEach(w => w.tick());
+  const c = dashCanvas.getContext('2d'), W = 1280, F = 'Arial, Helvetica, sans-serif';
+  const GREEN = '#73bf69', YEL = '#f2cc0c', RED = '#f2495c', BLUE = '#5794f2', ORG = '#ff9830', PUR = '#b877d9';
+  const thresh = v => v > 85 ? RED : v > 70 ? YEL : GREEN;
+  c.fillStyle = '#111217'; c.fillRect(0, 0, W, 720);
+  c.textBaseline = 'alphabetic'; c.textAlign = 'left';
+  c.fillStyle = '#d8d9da'; c.font = `bold 26px ${F}`; c.fillText('Node Exporter', 20, 36);
+  c.fillStyle = '#8e8e8e'; c.font = `19px ${F}`; c.fillText('host: rack-server-01   |   Last 15 minutes   |   simulated data', 215, 35);
+  const panel = (x, y, w, h, title) => { c.fillStyle = '#181b1f'; c.fillRect(x, y, w, h); c.strokeStyle = '#2a2d33'; c.strokeRect(x + .5, y + .5, w - 1, h - 1); c.fillStyle = '#ccccdc'; c.font = `bold 18px ${F}`; c.textAlign = 'center'; c.fillText(title, x + w / 2, y + 25); c.textAlign = 'left'; };
+  const gauge = (x, y, w, h, title, v) => {
+    panel(x, y, w, h, title);
+    const cx = x + w / 2, cy = y + h - 58, r = Math.min(w * .3, h * .38), s = Math.PI * .85, e = Math.PI * 2.15, col = thresh(v);
+    c.lineWidth = 18; c.strokeStyle = '#2c3036'; c.beginPath(); c.arc(cx, cy, r, s, e); c.stroke();
+    c.strokeStyle = col; c.beginPath(); c.arc(cx, cy, r, s, s + (e - s) * v / 100); c.stroke();
+    c.fillStyle = col; c.font = `bold 28px ${F}`; c.textAlign = 'center'; c.fillText(v.toFixed(1) + '%', cx, cy + 10); c.textAlign = 'left';
+  };
+  const stat = (x, y, w, h, title, val, col) => { panel(x, y, w, h, title); c.fillStyle = col; c.font = `bold 40px ${F}`; c.textAlign = 'center'; c.fillText(val, x + w / 2, y + h / 2 + 30); c.textAlign = 'left'; };
+  const graph = (x, y, w, h, title, series, unit, stacked) => {
+    panel(x, y, w, h, title);
+    const l = x + 62, r = x + w - 12, t = y + 38, b = y + h - 42, n = DASH_N;
+    let max = stacked ? 100 : Math.max(...series.flatMap(s => s.w.hist)) * 1.15;
+    if (!stacked) max = Math.ceil(max / 50) * 50 || 50;
+    c.font = `15px ${F}`;
+    for (let i = 0; i <= 4; i++) { const yy = b - (b - t) * i / 4; c.strokeStyle = '#26292f'; c.lineWidth = 1; c.beginPath(); c.moveTo(l, yy); c.lineTo(r, yy); c.stroke(); c.fillStyle = '#8e8e8e'; c.textAlign = 'right'; c.fillText(Math.round(max * i / 4) + unit, l - 7, yy + 5); }
+    c.textAlign = 'left';
+    const base = new Array(n).fill(0);
+    series.forEach(s => {
+      const pts = s.w.hist.map((v, i) => { const top = stacked ? base[i] + v : v; const p = [l + (r - l) * i / (n - 1), b - (b - t) * Math.min(1, top / max), stacked ? b - (b - t) * Math.min(1, base[i] / max) : b]; if (stacked) base[i] = top; return p; });
+      c.beginPath(); pts.forEach((p, i) => i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1])); [...pts].reverse().forEach(p => c.lineTo(p[0], p[2])); c.closePath();
+      c.globalAlpha = .22; c.fillStyle = s.col; c.fill(); c.globalAlpha = 1;
+      c.beginPath(); pts.forEach((p, i) => i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1])); c.strokeStyle = s.col; c.lineWidth = 2; c.stroke();
+    });
+    let lx = l; c.font = `15px ${F}`;
+    series.forEach(s => { const txt = `${s.name} ${s.w.now.toFixed(s.w.now < 100 ? 1 : 0)}${unit}`; c.fillStyle = s.col; c.fillRect(lx, b + 15, 14, 4); c.fillStyle = '#ccccdc'; c.fillText(txt, lx + 19, b + 23); lx += c.measureText(txt).width + 36; });
+  };
+  const cpu = DASH.user.now + DASH.sys.now + DASH.iow.now, ram = DASH.ram.now;
+  const d = Math.floor(dashUp / 86400), hrs = Math.floor(dashUp % 86400 / 3600);
+  gauge(12, 52, 245, 165, 'CPU Busy', cpu);
+  gauge(265, 52, 245, 165, 'Sys Load (per core)', DASH.load.now / 8 * 100);
+  gauge(518, 52, 245, 165, 'RAM Used', ram);
+  gauge(771, 52, 245, 165, 'Root FS Used', 47.3);
+  stat(1024, 52, 244, 80, 'Uptime', `${d}d ${hrs}h`, GREEN);
+  stat(1024, 137, 244, 80, 'CPU Cores / RAM', '8 / 32 GB', BLUE);
+  graph(12, 225, 624, 240, 'CPU Basic', [{ name: 'user', w: DASH.user, col: GREEN }, { name: 'system', w: DASH.sys, col: YEL }, { name: 'iowait', w: DASH.iow, col: RED }], '%', true);
+  graph(644, 225, 624, 240, 'Memory Basic', [{ name: 'used', w: DASH.ram, col: BLUE }, { name: 'cache', w: DASH.cache, col: ORG }], '%', true);
+  graph(12, 473, 624, 238, 'Network Traffic', [{ name: 'rx', w: DASH.rx, col: GREEN }, { name: 'tx', w: DASH.tx, col: BLUE }], ' Mb', false);
+  graph(644, 473, 624, 238, 'Disk I/O', [{ name: 'read', w: DASH.rd, col: PUR }, { name: 'write', w: DASH.wr, col: ORG }], ' MB', false);
+  dashTex.needsUpdate = true;
+}
+
+// 16:9 monitor (size is the diagonal) on a rail across two legs' outer 2 in faces.
+function buildMonitor(g, sx, a, y, zEnd, size) {
+  const sw = size * 0.872, sh = size * 0.49;
+  box(g, T, 1.5, 2 * zEnd + 1.5, sx * (a + T / 2), y, 0, MAT.silverDark);          // rail
+  box(g, 0.9, 1, 1, sx * (a + 0.55), y, 0, MAT.silverDark);                        // arm
+  box(g, 0.1, 3, 3, sx * (a + 1.05), y, 0, MAT.silverDark);                        // VESA plate
+  box(g, 0.7, sh + 0.7, sw + 0.7, sx * (a + 1.45), y, 0, MAT.bay);                 // body
+  box(g, 0.03, sh, sw, sx * (a + 1.81), y, 0, MAT.screen);                         // screen
+  const dash = new THREE.Mesh(new THREE.PlaneGeometry(sw, sh), dashMat);           // live-looking dashboard
+  dash.position.set(sx * (a + 1.83), y, 0);
+  dash.rotation.y = sx * Math.PI / 2;
+  g.add(dash);
+  box(g, 0.03, 0.08, 0.08, sx * (a + 1.81), y - sh / 2 - 0.2, sw / 2 - 0.2, MAT.led);
+  for (const s of [-1, 1]) thumb(g, v3(sx * (a + 0.2), y, s * zEnd), 'x', -sx);
+}
+
+// Rear panel spanning the two back legs; its bent ends fix to their 2 in faces.
+function buildInlet(g, y, W, D) {
+  const b = D / 2, ax = W / 2 - LEG_W, cz = -(b - LEG_D / 2);
+  box(g, 2 * ax, 2.4, T, 0, y, -(b - T / 2), MAT.frame);
+  for (const s of [-1, 1]) box(g, T, 2.4, LEG_D, s * (ax - T / 2), y, cz, MAT.frame);
+  const w = Math.min(4, 2 * ax - 1);
+  box(g, w, 2, 0.6, 0, y, -(b + 0.3), MAT.panel);
+  box(g, 0.7, 0.5, 0.1, -w / 4, y, -(b + 0.65), MAT.power);       // switch
+  for (const dx of [-0.3, 0, 0.3]) cyl(g, 0.09, 0.1, v3(w / 4 + dx, y, -(b + 0.65)), 'z', MAT.strip);
+  return w;
+}
+
+// A cable path of straight runs joined by small rounded bends.
+function cableRoute(pts, bend = 0.3) {
+  const p = pts.filter((q, i) => !i || q.distanceTo(pts[i - 1]) > 1e-3);
+  const path = new THREE.CurvePath();
+  let from = p[0];
+  for (let i = 1; i < p.length; i++) {
+    if (i === p.length - 1) { path.add(new THREE.LineCurve3(from, p[i])); break; }
+    const inD = p[i].clone().sub(p[i - 1]), outD = p[i + 1].clone().sub(p[i]);
+    const rad = Math.min(bend, inD.length() / 2, outD.length() / 2);
+    const a = p[i].clone().addScaledVector(inD.normalize(), -rad), b = p[i].clone().addScaledVector(outD.normalize(), rad);
+    path.add(new THREE.LineCurve3(from, a));
+    path.add(new THREE.QuadraticBezierCurve3(a, p[i].clone(), b));
+    from = b;
+  }
+  return path;
+}
+
+function buildLeg(g, cx, cz, sx, sz, W, D) {
+  const y = LEG_H / 2;
+  const bz = sz * (D / 2 - LEG_D + T / 2);       // solid inner 4 in face
+  const openZ = sz * (D / 2 - T / 2);            // open outer 4 in face
+  box(g, LEG_W, LEG_H, T, cx, y, bz, MAT.leg);
+  for (const s of [-1, 1]) {
+    box(g, T, LEG_H, LEG_D, cx + s * (LEG_W - T) / 2, y, cz, MAT.leg);
+    box(g, LIP, LEG_H, T, cx + s * (LEG_W / 2 - LIP / 2), y, openZ, MAT.leg);
+  }
+  for (const sy of STRIP_Y) box(g, LEG_W, STRIP_H, T, cx, sy, openZ, MAT.legStrip);
+
+  if (!bare) buildTongue(g, cx, cz, sz, 0);   // joins this leg to the part below
+
+  // Screw holes on the two solid inner faces, plus one through the spigot.
+  const holeBack = y0 => cyl(g, 0.13, 0.5, v3(cx, y0, bz), 'z', MAT.hole);
+  const holeSide = y0 => cyl(g, 0.13, 0.3, v3(cx - sx * (LEG_W - T) / 2, y0, cz), 'x', MAT.hole);
+  HOLES.forEach(h => {
+    holeBack(h); holeSide(h);
+    cyl(g, 0.13, 0.3, v3(cx + sx * (LEG_W - T) / 2, h, cz), 'x', MAT.hole); // outer face, for hooks
+  });
+}
+
+// One copy of every component, separate from the assembly, for the parts views.
+function buildCatalog(W, D, M) {
+  if (catalog) scene.remove(catalog);
+  catalog = new THREE.Group();
+  scene.add(catalog);
+  const a = W / 2, b = D / 2, cx = a - LEG_W / 2, cz = b - LEG_D / 2;
+  const defs = [
+    ['leg', 'Leg', () => 4 * M, g => buildLeg(g, cx, cz, 1, 1, W, D)],
+    ['plateSolid', 'Solid base plate', () => counts.solid, g => buildShelf(g, 'solid', 0, W, D, 'plate')],
+    ['plateVent', 'Vented base plate', () => counts.vent, g => buildShelf(g, 'vent', 0, W, D, 'plate')],
+    ['frame', 'Shelf frame', () => counts.solid + counts.vent, g => buildShelf(g, 'solid', 0, W, D, 'frame')],
+    ['coverPlate', 'Top cover plate', () => 1, g => box(g, W, 0.2, D, 0, 0, 0, MAT.cover)],
+    ['tongue', 'Joint tongue', () => 4 * (M + 1), g => buildTongue(g, 0, 0, 1, 0)],
+    ['foot', 'Base socket', () => 4, g => buildSocketCollar(g, cx, cz, 1, D)],
+    ['screw', 'Fixing screw', () => points.filter(p => p.cat !== 'leg' && !p.noScrew && (!p.group.userData.acc || accOn[p.group.userData.acc])).length, g => screw(g, v3(0, 0, 0), 'y', -1)],
+    ['bracket', 'L-bracket', () => (accOn.strip ? 2 : 0) + (accOn.server ? 2 * M : 0) + (accOn.switch ? 2 * M : 0), g => bracket(g, 1, 0, 0, 0)],
+    ['hook', 'Cable hook', () => accOn.hook ? 8 * M : 0, g => buildHook(g, 1, 0, 0, 0)],
+    ['strip', 'Power strip with tray', () => accOn.strip ? 1 : 0, g => buildStrip(g, 0, W, D)],
+    ['inlet', 'Back power mount', () => accOn.inlet ? 1 : 0, g => buildInlet(g, 0, W, D)],
+    ['server', 'Rack server', () => accOn.server ? M : 0, g => buildServer(g, 0, SERVER.w, SERVER.d, 0)],
+    ['switch', 'Network switch', () => accOn.switch ? M : 0, g => buildSwitch(g, 0, SWITCH.w, SWITCH.d, 0)],
+    ['monitor', 'Side monitor', () => accOn.monitor ? 1 : 0, g => buildMonitor(g, 1, 0, 0, b - LEG_D / 2, +$('monSize').value)],
+  ];
+  catItems = defs.map(([id, name, qty, make]) => {
+    const wrap = new THREE.Group(), inner = new THREE.Group();
+    wrap.add(inner);
+    bare = id !== 'tongue' && id !== 'bracket' && id !== 'screw';
+    make(inner);
+    bare = false;
+    const b3 = new THREE.Box3().setFromObject(inner), c = b3.getCenter(new THREE.Vector3()), size = b3.getSize(new THREE.Vector3());
+    inner.position.set(-c.x, -b3.min.y, -c.z);    // centred, resting on its base
+    catalog.add(wrap);
+    const el = document.createElement('div');
+    el.className = 'pt';
+    el.style.background = '#1d2733';
+    labelsEl.append(el);
+    return { id, name, qty, wrap, size, el };
+  });
+  // Lay out in rows on the floor, in list order.
+  let x = 0, z = 0, rowD = 0;
+  const rowW = 80, gap = 6;
+  for (const it of catItems) {
+    const cell = Math.max(it.size.x, 14);   // room for the label on small parts
+    if (x > 0 && x + cell > rowW) { x = 0; z += rowD + gap; rowD = 0; }
+    it.wrap.position.set(x + cell / 2 - rowW / 2, grid.position.y, z + it.size.z / 2);
+    x += cell + gap;
+    rowD = Math.max(rowD, it.size.z);
+  }
+}
+function catMode() { const v = $('focus').value; return v.startsWith('c:') ? v.slice(2) : null; }
+
+function buildSocketCollar(g, cx, cz, sz, D) {
+  // Base: same open-sided section as the top of a leg, on a floor plate.
+  box(g, LEG_W, SPIGOT, T, cx, -SPIGOT / 2, sz * (D / 2 - LEG_D + T / 2), MAT.foot);
+  for (const s of [-1, 1]) box(g, T, SPIGOT, LEG_D, cx + s * (LEG_W - T) / 2, -SPIGOT / 2, cz, MAT.foot);
+  box(g, LEG_W + 1.5, 0.25, LEG_D + 1.5, cx, -SPIGOT - 0.125, cz, MAT.foot);
+  cyl(g, 0.13, 0.5, v3(cx, -1, sz * (D / 2 - LEG_D + T / 2)), 'z', MAT.hole);
+}
+
+let plateT = 1.2 / 25.4;   // shelf sheet thickness, inches
+function buildShelf(g, type, topY, W, D, what = 'both') {
+  const a = W / 2, b = D / 2, ax = a - LEG_W, bz = b - LEG_D;
+  const shape = new THREE.Shape();
+  shape.moveTo(-ax, -b);
+  [[ax, -b], [ax, -bz], [a, -bz], [a, bz], [ax, bz], [ax, b], [-ax, b], [-ax, bz], [-a, bz], [-a, -bz], [-ax, -bz]]
+    .forEach(p => shape.lineTo(...p));
+  shape.closePath();
+
+  if (type === 'vent') {
+    const R = 0.45, P = 1.5, M = 0.9;
+    const inNotchZone = (x, y) => Math.abs(x) > ax - M && Math.abs(y) > bz - M;
+    const nx = Math.floor((a - M - R) / P), ny = Math.floor((b - M - R) / P);
+    const cableX = ax - 1.6, cableY = bz - 1.6;
+    const inCable = (x, y) => Math.abs(Math.abs(x) - cableX) < 2.3 && Math.abs(Math.abs(y) - cableY) < 1.3;
+    for (let i = -nx; i <= nx; i++) for (let j = -ny; j <= ny; j++) {
+      const x = i * P, y = j * P;
+      if (inNotchZone(x, y) || inCable(x, y)) continue;
+      const h = new THREE.Path();
+      h.absarc(x, y, R, 0, Math.PI * 2, true);
+      shape.holes.push(h);
+    }
+    // Four larger rounded slots for cable pass-through.
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+      const h = new THREE.Path(), x = sx * cableX, y = sy * cableY, r = 0.7, l = 1.2;
+      h.absarc(x + l, y, r, -Math.PI / 2, Math.PI / 2, false);
+      h.absarc(x - l, y, r, Math.PI / 2, Math.PI * 1.5, false);
+      h.closePath();
+      shape.holes.push(h);
+    }
+  }
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: plateT, bevelEnabled: false, curveSegments: 12 });
+  geo.rotateX(-Math.PI / 2);
+  const plate = new THREE.Mesh(geo, MAT[type]);
+  plate.position.y = topY - plateT;
+  begin(g, `${shelfLabel} plate`, type === 'vent' ? 'plateVent' : 'plateSolid', `${type === 'vent' ? 'Vented' : 'Solid'} base plate of shelf ${shelfLabel}`);
+  track(plate);
+  if (what !== 'frame') g.add(plate);
+  if (what === 'plate') return;
+
+  begin(g, `${shelfLabel} frame`, 'frame', `Frame around shelf ${shelfLabel}, fixes to the legs`);
+  // Frame around the plate. It follows the corner notches, so its faces meet the leg faces.
+  const y = topY - SKIRT / 2;
+  for (const s of [-1, 1]) {
+    box(g, 2 * ax, SKIRT, T, 0, y, s * (b - T / 2), MAT.frame);
+    box(g, T, SKIRT, 2 * bz, s * (a - T / 2), y, 0, MAT.frame);
+  }
+  for (const [, sx, sz] of CORNERS) {
+    box(g, T, SKIRT, LEG_D, sx * (ax - T / 2), y, sz * (bz + LEG_D / 2), MAT.frame);
+    box(g, LEG_W, SKIRT, T, sx * (ax + LEG_W / 2), y, sz * (bz - T / 2), MAT.frame);
+  }
+}
+
+function build() {
+  if (root) {
+    root.traverse(o => { if (o.geometry && !Object.values(screwGeo).includes(o.geometry)) o.geometry.dispose(); if (o.isMesh && o.material.depthTest === false) o.material.dispose(); });
+    scene.remove(root);
+  }
+  labelsEl.textContent = '';
+  root = new THREE.Group();
+  scene.add(root);
+  labelsEl.append(mLabelEl);
+  mLabelEl.style.display = 'none';
+  parts = []; points = []; items = []; hot = null; cur = null; collecting = true;
+
+  const clamp = (el, lo, hi) => { const v = Math.max(lo, Math.min(hi, +el.value || lo)); el.value = v; return v; };
+  const M = clamp($('modules'), 1, 4), W = clamp($('width'), 14, 48), D = clamp($('depth'), 10, 36);
+  plateT = +$('plateThk').value / 25.4;
+  const nShelf = +$('shelves').value, pattern = $('pattern').value;
+  const H = M * LEG_H, a = W / 2, b = D / 2, ax = a - LEG_W, bz = b - LEG_D;
+  counts = { solid: 0, vent: 0 };
+  modules = M;
+  cable = null;
+  cords = [];
+  const shelves = [];
+  let shelfIndex = 0;
+
+  for (const [c, sx, sz] of CORNERS) {
+    const cx = sx * (a - LEG_W / 2), cz = sz * (b - LEG_D / 2);
+    const backZ = sz * (bz - T);        // screw head position, just inside the solid face
+
+    const foot = addPart('foot', v3(sx * 6, -7, sz * 6));
+    if (c === 'FL') foot.userData.first = true;
+    begin(foot, `F-${c} socket`, 'foot', `Base socket under leg L1-${c}`);
+    buildSocketCollar(foot, cx, cz, sz, D);
+    screw(foot, v3(cx, -1, backZ), 'z', sz);
+    addPoint(foot, `F-${c}`, `Base socket to leg L1-${c} spigot`, 'foot', v3(cx, -1, backZ));
+
+    for (let m = 0; m < M; m++) {
+      const baseY = m * LEG_H;
+      const leg = addPart('leg', v3(sx * 6, m * 12, sz * 6));
+      if (c === 'FL' && m === 0) leg.userData.first = true;
+      const inner = new THREE.Group();
+      inner.position.y = baseY;
+      leg.add(inner);
+      begin(leg, `L${m + 1}-${c}`, 'leg', `Leg in module ${m + 1}, corner ${c}`);
+      buildLeg(inner, cx, cz, sx, sz, W, D);
+      [7, 17].forEach((hy, i) => {
+        const h = addPart('hook', v3(sx * 10, m * 12, sz * 6), 'hook');
+        if (c === 'FL' && m === 0 && i === 0) h.userData.first = true;
+        begin(h, `H${m + 1}-${c}-${i + 1} hook`, 'hook', `Cable hook on leg L${m + 1}-${c}`);
+        buildHook(h, sx, baseY + hy, cz, a);
+        addPoint(h, `H${m + 1}-${c}-${i + 1}`, `Cable hook to outer 2 in face of leg L${m + 1}-${c}`, 'hook', v3(sx * (a + 0.3), baseY + hy, cz));
+      });
+      addPoint(leg, `L${m + 1}-${c}-B`, `Leg ${m + 1} spigot (bottom end)`, 'leg', v3(cx, baseY - 1, cz));
+      addPoint(leg, `L${m + 1}-${c}-T`, `Leg ${m + 1} socket (top end)`, 'leg', v3(cx, baseY + LEG_H - 1, cz));
+      const up = v3(cx, baseY + 1, backZ);
+      screw(leg, up, 'z', sz);
+      addPoint(leg, `T${m + 1}-${c}`, `Joint tongue to bottom of leg L${m + 1}-${c}`, 'joint', up);
+      if (m > 0) {
+        const p = v3(cx, baseY - 1, backZ);
+        screw(leg, p, 'z', sz);
+        addPoint(leg, `J${m}-${c}`, `Leg L${m}-${c} socket to leg L${m + 1}-${c} spigot`, 'joint', p);
+      }
+    }
+
+    const cov = v3(cx, H - 1, backZ);
+    points.coverScrews = points.coverScrews || [];
+    points.coverScrews.push({ c, cx, cz, sz, cov });
+  }
+
+  // Shelves
+  for (let m = 0; m < M; m++) SHELF_HOLE[nShelf].forEach((hole, n) => {
+    const type = pattern === 'alt' ? (shelfIndex % 2 ? 'vent' : 'solid') : pattern;
+    shelfIndex++;
+    counts[type]++;
+    const y = m * LEG_H + hole;
+    const g = addPart(type, v3(0, m * 12 + 3 + n * 4, 0));
+    if (counts[type] === 1) g.userData.first = true;
+    shelfLabel = `S${m + 1}.${n + 1}`;
+    buildShelf(g, type, y + SKIRT / 2, W, D);
+    const id = `S${m + 1}.${n + 1}`;
+    shelves.push({ id, m, n, last: n === serverShelf(nShelf), top: y + SKIRT / 2, explode: g.userData.explode });
+    for (const [c, sx, sz] of CORNERS) {
+      const pa = v3(sx * (ax - T), y, sz * (bz + LEG_D / 2));
+      const pb = v3(sx * (ax + LEG_W / 2), y, sz * (bz - T));
+      screw(g, pa, 'x', sx);
+      screw(g, pb, 'z', sz);
+      addPoint(g, `${id}-${c}-a`, `${type} shelf frame to 2 in face of leg L${m + 1}-${c}`, 'shelf', pa);
+      addPoint(g, `${id}-${c}-b`, `${type} shelf frame to 4 in face of leg L${m + 1}-${c}`, 'shelf', pb);
+    }
+  });
+
+  // Top cover: a plain rectangle with plugs that drop into each leg top.
+  const cover = addPart('cover', v3(0, M * 12 + 8, 0));
+  cover.userData.first = true;
+  begin(cover, 'Top cover plate', 'cover', 'Rectangular plate on top of the legs');
+  box(cover, W, 0.2, D, 0, H + 0.1, 0, MAT.cover);
+  for (const { c, cx, cz, sz, cov } of points.coverScrews) {
+    begin(cover, `C-${c}`, 'cover', '');
+    items.pop();
+    buildTongue(cover, cx, cz, sz, H - 2);
+    screw(cover, cov, 'z', sz);
+    addPoint(cover, `C-${c}`, `Top cover plug to leg L${M}-${c} socket`, 'cover', cov);
+  }
+  delete points.coverScrews;
+
+  // Power strip mount on the chosen shelf.
+  const sel = $('stripShelf'), keep = sel.value;
+  sel.innerHTML = shelves.map(s => `<option>${s.id}</option>`).join('');
+  sel.value = shelves.some(s => s.id === keep) ? keep : shelves[0].id;
+  const host = shelves.find(s => s.id === sel.value);
+  const strip = addPart('strip', host.explode.clone().add(v3(0, 2.5, 0)), 'strip');
+  strip.userData.first = true;
+  begin(strip, 'Power strip with tray', 'strip', `Mounted on shelf ${host.id}`);
+  const st = buildStrip(strip, host.top, W, D);
+  for (const s of [-1, 1]) addPoint(strip, `P-S${s < 0 ? 'L' : 'R'}`, `Power strip clamp to shelf ${host.id}`, 'power', v3(s * st.clampX, host.top + 0.28, st.zc));
+
+  // One server per leg module, on that module's top shelf. It keeps clear of the
+  // strip's tray when they share a shelf, and of the legs at the sides.
+  let minDepth = Infinity, minW = Infinity;
+  const devs = [];
+  for (const sh of shelves.filter(x => x.last)) {
+    const zMax = bz - 0.3, zMin = sh === host ? -(b - 4.2) : -(bz - 0.3);
+    const depth = Math.min(SERVER.d, zMax - zMin), zc = zMax - depth / 2, w = Math.min(SERVER.w, W - 2.2);
+    minDepth = Math.min(minDepth, depth); minW = Math.min(minW, w);
+    const g = addPart('server', sh.explode.clone().add(v3(0, 6, 0)), 'server');
+    if (sh.m === 0) g.userData.first = true;
+    begin(g, `Server ${sh.m + 1}`, 'server', `On shelf ${sh.id}`);
+    buildServer(g, sh.top, w, depth, zc);
+    devs.push({ name: `Server ${sh.m + 1}`, acc: 'server', x: w / 2 - 1.5, y: sh.top + 1, z: zc - depth / 2 - 0.1, cross: sh.top + 0.6 });
+    for (const [c, s] of [['L', -1], ['R', 1]])
+      addPoint(g, `V${sh.m + 1}-${c}`, `Server ${sh.m + 1} bracket to shelf ${sh.id}`, 'server', v3(s * (w / 2 + 0.5), sh.top + 0.3, zc));
+  }
+
+  // One switch per leg module: on the shelf below the server, or hung under the
+  // shelf when the module has only one, so it never depends on the server being fitted.
+  for (let m = 0; m < M; m++) {
+    const own = shelves.filter(x => x.m === m);
+    const sh = own[Math.max(0, serverShelf(own.length) - 1)], hang = own.length === 1;
+    const zMax = bz - 0.3, zMin = !hang && sh === host ? -(b - 4.2) : -(bz - 0.3);
+    const depth = Math.min(SWITCH.d, zMax - zMin), zc = zMax - depth / 2, w = Math.min(SWITCH.w, W - 2.2);
+    const under = sh.top - T - 0.02;
+    const base = hang ? under - SWITCH.h - 0.1 : sh.top + 0.1;
+    const g = addPart('switch', sh.explode.clone().add(v3(0, hang ? -5 : 3, 4)), 'switch');
+    if (m === 0) g.userData.first = true;
+    begin(g, `Switch ${m + 1}`, 'switch', `At shelf ${sh.id}`);
+    buildSwitch(g, base, w, depth, zc, hang ? under : undefined);
+    devs.push({ name: `Switch ${m + 1}`, acc: 'switch', x: w / 2 - 3.5, y: base + SWITCH.h / 2, z: zc - depth / 2, cross: hang ? sh.top - 1.8 : sh.top + 0.6 });
+    for (const [c, s] of [['L', -1], ['R', 1]])
+      addPoint(g, `W${m + 1}-${c}`, `Switch ${m + 1} bracket to shelf ${sh.id}`, 'switch', v3(s * (w / 2 + 0.5), hang ? under - 0.2 : base + 0.2, zc));
+  }
+
+  // Side monitor at about standing eye level, on a hole row free of hooks and strips.
+  const monSide = +$('monSide').value, monSize = +$('monSize').value;
+  const monY = M > 1 ? LEG_H + 13 : 13, monZ = b - LEG_D / 2;
+  const mon = addPart('monitor', v3(monSide * 16, 8, 0), 'monitor');
+  mon.userData.first = true;
+  begin(mon, 'Side monitor', 'monitor', `${monSize} in, on the ${monSide > 0 ? 'right' : 'left'} side`);
+  buildMonitor(mon, monSide, a, monY, monZ, monSize);
+  const monLeg = monSide > 0 ? 'R' : 'L', monMod = M > 1 ? 2 : 1;
+  for (const [c, s] of [['F', 1], ['B', -1]])
+    addPoint(mon, `D-${c}${monLeg}`, `Monitor rail to outer 2 in face of leg L${monMod}-${c}${monLeg}`, 'monitor', v3(monSide * (a + 0.3), monY, s * monZ));
+  devs.push({ name: 'Side monitor', acc: 'monitor', x: monSide * (a + 0.6), y: monY - 0.6, z: 0, cross: monY - 0.6 });
+
+  cur = null;
+
+  // Power cords: device rear, over the shelf's back edge, down the open channel of
+  // the back-right leg, then across to its own socket on the strip.
+  const clearY = y => {
+    const local = ((y % LEG_H) + LEG_H) % LEG_H;
+    const hit = STRIP_Y.find(c => Math.abs(local - c) < STRIP_H / 2 + 0.2);
+    return hit === undefined ? y : y + (hit + STRIP_H / 2 + 0.3 - local);
+  };
+  const chan = -(b - LEG_D / 2), legX = a - LEG_W / 2, sockY = host.top + 2.75;
+  const tieYs = [];
+  devs.slice(0, st.sockets.length).forEach((d, i) => {
+    const sx = st.sockets[i], o = (i - 2.5) * 0.3, inY = clearY(d.cross), outY = clearY(sockY);
+    const lane = -(b + 0.75 + i * 0.14);     // each cord keeps its own lane behind the rack
+    tieYs.push(inY, outY);
+    const c = cableRoute([
+      v3(d.x, d.y, d.z), v3(d.x, d.cross, d.z), v3(d.x, d.cross, lane), v3(legX + o, d.cross, lane), v3(legX + o, inY, lane),
+      v3(legX + o, inY, chan), v3(legX + o, outY, chan), v3(legX + o, outY, lane),
+      v3(sx, outY, lane), v3(sx, sockY, lane), v3(sx, sockY, st.zc), v3(sx, host.top + 1.5, st.zc),
+    ]);
+    const m = new THREE.Mesh(new THREE.TubeGeometry(c, 220, 0.07, 6), MAT.cord[d.acc]);
+    root.add(m);
+    box(m, 0.7, 0.5, 0.9, sx, host.top + 1.65, st.zc, MAT.cable);    // plug
+    cords.push({ mesh: m, acc: d.acc });
+    addPoint(strip, `P-O${i + 1}`, `Socket ${i + 1}: ${d.name} power cord`, 'power', v3(sx, host.top + 2, st.zc));
+    points[points.length - 1].noScrew = true;
+  });
+  // Cable ties around the bundle inside the leg channel, clear of the leg's strips.
+  if (tieYs.length) {
+    const ties = new THREE.Group(), lo = Math.min(...tieYs), hi = Math.max(...tieYs);
+    for (let y = lo + 1; y < hi; y += 6) {
+      const ty = clearY(y);
+      const tie = new THREE.Mesh(new THREE.TorusGeometry(1, 0.05, 6, 28), MAT.cable);
+      tie.rotation.x = Math.PI / 2;
+      tie.scale.set(1.05, 0.45, 1);
+      tie.position.set(legX, ty, chan);
+      ties.add(tie);
+    }
+    root.add(ties);
+    cords.push({ mesh: ties, acc: 'strip' });
+  }
+  const spare = st.sockets.length - devs.length;
+  $('powerNote').textContent = spare >= 0
+    ? `Power: ${devs.length} of ${st.sockets.length} strip sockets used.`
+    : `Power: only ${st.sockets.length} strip sockets, so ${-spare} devices have no cord. Add a second strip.`;
+
+  const cut = [];
+  if (minW < SERVER.w) cut.push(`width to ${minW.toFixed(1)} in`);
+  if (minDepth < SERVER.d) cut.push(`depth to ${minDepth.toFixed(1)} in`);
+  $('serverNote').textContent = `Assumed real size: ${SERVER.w} W x ${SERVER.h} H x ${SERVER.d} D in.` +
+    (cut.length ? ` Shortened to fit this rack: ${cut.join(', ')}.` : ' Fits at full size.');
+
+  // Power entry on the back, in a hole row no shelf layout uses.
+  const inletY = 5;
+  const inlet = addPart('inlet', v3(0, 0, -9), 'inlet');
+  inlet.userData.first = true;
+  begin(inlet, 'Back power mount', 'inlet', 'Panel across the two back legs');
+  const iw = buildInlet(inlet, inletY, W, D);
+  for (const [c, s] of [['L', -1], ['R', 1]]) {
+    const p = v3(s * (ax - T), inletY, -(b - LEG_D / 2));
+    thumb(inlet, p, 'x', s);
+    addPoint(inlet, `P-B${c}`, `Back power mount to 2 in face of leg L1-B${c}`, 'power', p);
+  }
+
+  // Power lead: from the strip, over the back edge of the shelf, into the back mount.
+  const path = cableRoute([
+    v3(st.cableX, host.top + 0.9, st.zc - 1), v3(st.cableX, host.top + 0.9, -(b + 0.3)),
+    v3(st.cableX, inletY, -(b + 0.3)), v3(iw / 2, inletY, -(b + 0.3)),
+  ]);
+  cable = new THREE.Mesh(new THREE.TubeGeometry(path, 90, 0.12, 8), MAT.cable);
+  root.add(cable);
+
+  if (grid) scene.remove(grid);
+  grid = new THREE.GridHelper(120, 20, '#aab4bd', '#ccd3da');
+  grid.position.y = -SPIGOT - 0.26;
+  scene.add(grid);
+
+  collecting = false;
+  cur = null;
+  buildCatalog(W, D, M);
+
+  const totalH = H + 0.2 + SPIGOT + 0.25;
+  $('size').textContent = `${W} W x ${D} D x ${totalH.toFixed(1)} H in (${(W * 2.54).toFixed(0)} x ${(D * 2.54).toFixed(0)} x ${(totalH * 2.54).toFixed(0)} cm)`;
+  $('list').innerHTML = '';
+  listGroups = [];
+  const singleOpen = { leg: true };
+  for (const [kind, title] of Object.entries(ITEM_KINDS)) {
+    const list = items.filter(it => it.kind === kind);
+    if (!list.length) continue;
+    const det = document.createElement('details');
+    det.open = !!singleOpen[kind];
+    const sum = document.createElement('summary');
+    sum.textContent = title + ' ';
+    const total = document.createElement('em');
+    sum.append(total);
+    det.append(sum);
+    listGroups.push({ kind, det, total, list });
+    for (const it of list) {
+      const d = document.createElement('div');
+      const nm = document.createElement('b'), ds = document.createElement('span');
+      nm.textContent = it.name + ' ';
+      it.countEl = document.createElement('em');
+      nm.append(it.countEl);
+      ds.textContent = it.desc;
+      d.append(nm, ds);
+      d.onclick = () => selectItem(hot === it ? null : it);
+      it.row = d;
+      det.append(d);
+    }
+    $('list').append(det);
+  }
+  renderBom();
+  applyVisibility();
+  applyExplode();
+  frame('iso');
+}
+
+// Parts table: the rack itself only. A click isolates one example of that part.
+const isAccessory = g => !!g.userData.acc;
+const isFitted = g => !g.userData.acc || accOn[g.userData.acc];
+function exampleOf(kinds) {
+  return items.find(it => kinds.includes(it.kind) && isFitted(it.group) && !isAccessory(it.group));
+}
+function shelfExample(plateKind) {
+  const plate = exampleOf([plateKind]);
+  if (!plate) return null;
+  const frame = items.find(it => it.kind === 'frame' && it.group === plate.group);
+  const id = plate.name.replace(' plate', '');
+  return { name: `Shelf ${id}`, desc: `${plateKind === 'plateVent' ? 'Vented' : 'Solid'} base plate and its frame`,
+    kind: 'shelf', group: plate.group, meshes: [...plate.meshes, ...frame.meshes], key: plateKind };
+}
+// Volumes in cubic inches, from the same dimensions the model is drawn with.
+const IN3_TO_M3 = 0.0254 ** 3;
+function meshVolume(geo) {
+  const P = geo.attributes.position, idx = geo.index;
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  const n = idx ? idx.count : P.count;
+  let v = 0;
+  for (let i = 0; i < n; i += 3) {
+    const at = k => (idx ? idx.getX(i + k) : i + k);
+    a.fromBufferAttribute(P, at(0)); b.fromBufferAttribute(P, at(1)); c.fromBufferAttribute(P, at(2));
+    v += a.dot(b.cross(c)) / 6;
+  }
+  return Math.abs(v);
+}
+function unitVolumes() {
+  const W = +$('width').value, D = +$('depth').value;
+  const ax = W / 2 - LEG_W, bz = D / 2 - LEG_D;
+  const holeArea = Math.PI * 0.13 ** 2;
+  const leg = (LEG_W + 2 * (LEG_D - T) + 2 * (LIP - T)) * LEG_H * T
+    + STRIP_Y.length * (LEG_W - 2 * LIP) * STRIP_H * T - HOLES.length * 3 * holeArea * T;
+  const foot = (LEG_W + 2 * (LEG_D - T)) * SPIGOT * T + (LEG_W + 1.5) * (LEG_D + 1.5) * 0.25 - holeArea * T;
+  const tw = LEG_W - 2 * T - CLEAR, td = LEG_D - 2 * T - CLEAR;
+  const tongue = (tw + 2 * (td - T)) * 4 * T - 2 * holeArea * T;
+  const frame = (4 * ax + 4 * bz + 4 * LEG_D + 4 * LEG_W) * SKIRT * T;
+  const plateOf = kind => { const it = items.find(i => i.kind === kind); return it ? meshVolume(it.meshes[0].geometry) : 0; };
+  const { major, minor, length, knobR, knobH, collarR, collarH, hexAF } = SCREW;
+  const hexArea = (Math.sqrt(3) / 2) * hexAF ** 2;
+  const screwV = Math.PI * ((major + minor) / 2) ** 2 * length + Math.PI * collarR ** 2 * collarH
+    + Math.PI * knobR ** 2 * (0.95 ** 2 + 0.05 ** 2 / 2) * knobH - hexArea * 3 * MM;
+  return { leg, foot, tongue, frame, cover: W * D * 0.2, screw: screwV, plateSolid: plateOf('plateSolid'), plateVent: plateOf('plateVent') };
+}
+function density() {
+  const d = +$('density').value;
+  return d > 0 ? d : 0;
+}
+const fmtKg = kg => (kg < 10 ? kg.toFixed(2) : kg.toFixed(1)) + ' kg';
+
+function renderBom() {
+  const fitted = kind => items.filter(it => it.kind === kind && isFitted(it.group) && !isAccessory(it.group)).length;
+  const V = unitVolumes();
+  const rows = [
+    ['Legs, 4 x 2 x 24 in', fitted('leg'), () => exampleOf(['leg']), V.leg],
+    ['Base sockets', fitted('foot'), () => exampleOf(['foot']), V.foot],
+    ['Solid shelves', fitted('plateSolid'), () => shelfExample('plateSolid'), V.plateSolid + V.frame],
+    ['Vented shelves', fitted('plateVent'), () => shelfExample('plateVent'), V.plateVent + V.frame],
+    ['Top cover', fitted('cover'), () => exampleOf(['cover']), V.cover],
+    ['Joint tongues', fitted('tongue'), () => exampleOf(['tongue']), V.tongue],
+    ['Fixing screws (one type)', fitted('screw'), () => exampleOf(['screw']), V.screw],
+  ];
+  const table = $('bom');
+  table.textContent = '';
+  const headRow = table.insertRow();
+  for (const label of ['Part', 'Qty', 'Weight']) {
+    const th = document.createElement('th');
+    th.textContent = label;
+    headRow.append(th);
+  }
+  const rho = density();
+  let totalKg = 0;
+  for (const [name, qty, pick, vol] of rows) {
+    const tr = table.insertRow();
+    const kg = qty * vol * IN3_TO_M3 * rho;
+    totalKg += kg;
+    tr.insertCell().textContent = name;
+    tr.insertCell().textContent = qty;
+    tr.insertCell().textContent = fmtKg(kg);
+    if (!qty) continue;
+    tr.className = 'pick';
+    tr.tabIndex = 0;
+    const open = () => {
+      const it = pick();
+      if (!it) return;
+      const same = hot && hot.name === it.name;
+      if ($('focus').value !== 'all') { $('focus').value = 'all'; $('focus').onchange(); }
+      selectItem(same ? null : it);
+    };
+    tr.onclick = open;
+    tr.onkeydown = e => { if (e.key === 'Enter') open(); };
+  }
+  const foot = table.insertRow();
+  foot.className = 'total';
+  foot.insertCell().textContent = 'Total rack weight';
+  foot.insertCell();
+  foot.insertCell().textContent = fmtKg(totalKg);
+  const matName = $('material').selectedOptions[0].textContent;
+  $('weightTop').textContent = `Rack weight ${fmtKg(totalKg)} (${(totalKg * 2.20462).toFixed(0)} lb), ${matName.toLowerCase()}, ${rho} kg/m³, without accessories`;
+  catItems.forEach(it => { it.el.textContent = `${it.name} x ${it.qty()}`; });
+}
+
+function syncList() { items.forEach(it => it.row.classList.toggle('on', it === hot)); }
+
+function isolated() {
+  const f = $('focus').value;
+  if (f === 'all') return null;
+  return parts.find(g => g.userData.tag === f && g.userData.first) || null;
+}
+function applyVisibility() {
+  const only = isolated(), cat = catMode();
+  root.visible = !cat;
+  catalog.visible = !!cat;
+  catItems.forEach(it => {
+    it.show = !!cat && (cat === 'layout' || cat === it.id);
+    it.wrap.visible = it.show;
+    it.el.style.display = it.show ? '' : 'none';
+  });
+  for (const g of parts) g.visible = only ? g === only : !g.userData.acc || accOn[g.userData.acc];
+  if (hot && (catMode() || !hot.group.visible)) { hot = null; syncList(); detailEl.hidden = true; }
+  items.forEach(it => { it.row.style.display = !cat && it.group.visible ? '' : 'none'; });
+  // Counts follow what is fitted, not the current view.
+  for (const g of listGroups) {
+    const n = g.list.filter(it => !it.group.userData.acc || accOn[it.group.userData.acc]).length;
+    g.total.textContent = `x${n}`;
+    g.list.forEach(it => { it.countEl.textContent = `x${n}`; });
+    g.det.style.display = !cat && g.list.some(it => it.group.visible) ? '' : 'none';
+  }
+  updateCable();
+  grid.visible = !only && (!cat || cat === 'layout');
+  for (const p of points) {
+    const on = only ? p.group === only : catOn[p.cat];
+    p.show = !cat && p.group.visible && (on || p === hot);
+    p.marker.visible = p.show;
+    p.el.style.display = p.show ? '' : 'none';
+    p.el.classList.toggle('hot', p === hot);
+  }
+}
+function updateCable() {
+  const assembled = !isolated() && !catMode() && +$('explode').value === 0;
+  if (cable) cable.visible = assembled && accOn.strip && accOn.inlet;
+  cords.forEach(c => { c.mesh.visible = assembled && accOn.strip && accOn[c.acc]; });
+}
+function applyExplode() {
+  updateCable();
+  const e = isolated() ? 0 : +$('explode').value;
+  for (const g of parts) g.position.copy(g.userData.explode).multiplyScalar(e);
+  if (hot) aimDetail();
+}
+
+function frame(mode) {
+  const only = isolated();
+  const b3 = new THREE.Box3();
+  // Measure solid geometry only, in the current explode state.
+  root.updateMatrixWorld(true);
+  if (catMode()) catItems.filter(it => it.show).forEach(it => b3.expandByObject(it.wrap));
+  else parts.filter(g => g.visible).forEach(g => b3.expandByObject(g));
+  const c = b3.getCenter(new THREE.Vector3());
+  const r = b3.getSize(new THREE.Vector3()).length() / 2;
+  const dist = r / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2)) * (camera.aspect < 1 ? 1.5 : 1.05);
+  const dir = { iso: v3(0.7, 0.42, 1), front: v3(0, 0, 1), back: v3(-0.45, 0.25, -1), side: v3(1, 0, 0), top: v3(0, 1, 0.001) }[mode].normalize();
+  controls.target.copy(c);
+  camera.position.copy(c).addScaledVector(dir, dist);
+  camera.near = dist / 50;
+  camera.far = dist * 6;
+  camera.updateProjectionMatrix();
+  controls.update();
+}
+
+function resize() {
+  const w = view.clientWidth, h = view.clientHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+
+// Zoom view: a second camera, beside the main design, showing only the chosen point's part.
+const detailEl = $('detail');
+const dCam = new THREE.PerspectiveCamera(35, 1, 0.05, 1000);
+const dControls = new OrbitControls(dCam, detailEl);
+dControls.enableDamping = true;
+let showContext = false;
+const detailBg = new THREE.Color('#ffffff'), mainBg = scene.background;
+const finder = new THREE.Mesh(new THREE.SphereGeometry(0.45, 14, 10),
+  new THREE.MeshBasicMaterial({ color: '#111111', depthTest: false, transparent: true, opacity: 0.75 }));
+finder.renderOrder = 6;
+finder.visible = false;
+scene.add(finder);
+
+function itemBox(it, wholePart) {
+  root.updateMatrixWorld(true);
+  const b3 = new THREE.Box3();
+  if (wholePart) b3.expandByObject(it.group);
+  else it.meshes.filter(m => m.material !== MAT.hole).forEach(m => b3.expandByObject(m));   // hole markers poke past the steel
+  return b3;
+}
+function aimDetail(keepDir = true) {
+  if (!hot) return;
+  const b3 = itemBox(hot, showContext);
+  const target = b3.getCenter(new THREE.Vector3());
+  const radius = Math.max(b3.getSize(new THREE.Vector3()).length() / 2, 0.3);
+  const dist = radius / Math.sin(THREE.MathUtils.degToRad(dCam.fov / 2)) * 1.5 / Math.min(1, dCam.aspect);
+  const dir = keepDir && dCam.userData.aimed
+    ? dCam.position.clone().sub(dControls.target).normalize()
+    : camera.position.clone().sub(target).normalize();
+  dControls.target.copy(target);
+  dCam.position.copy(target).addScaledVector(dir, dist);
+  dCam.near = dist / 100;
+  dCam.far = dist * 20;
+  dCam.updateProjectionMatrix();
+  dCam.userData.aimed = true;
+  dControls.update();
+  updateDims();
+}
+// Measurements. Values come from the part's real geometry, so they follow the rack settings.
+let showDims = true, dimLabels = [];
+const dimMat = new THREE.LineBasicMaterial({ color: '#b42318', depthTest: false, transparent: true });
+const dimGroup = new THREE.Group();
+dimGroup.visible = false;
+dimGroup.renderOrder = 7;
+scene.add(dimGroup);
+const fmtIn = v => `${(+v.toFixed(2))} in`;
+const fmtDim = v => `${fmtIn(v)} (${Math.round(v * 25.4)} mm)`;
+
+function keyFacts(it, size) {
+  const hole = `Screw holes: ${fmtDim(0.26).replace(/ \(.*/, '')} (6.6 mm) wide`;
+  switch (it.kind) {
+    case 'leg': return ['Section 4 x 2 in, 24 in long', `Wall ${fmtIn(T)} thick`, 'Hole spacing 2 in, first hole 1 in from each end', hole, 'Strips 2 in tall, centred 3, 12 and 21 in up'];
+    case 'foot': return ['Socket 4 x 2 x 2 in', 'Floor plate 5.5 x 3.5 x 0.25 in'];
+    case 'tongue': return ['4 in long, half in each part', 'Holes 2 in apart', hole];
+    case 'plateSolid': return [`Sheet thickness ${$('plateThk').value} mm`, 'Corner notches 4 x 2 in, to fit the legs'];
+    case 'plateVent': return [`Sheet thickness ${$('plateThk').value} mm`, 'Corner notches 4 x 2 in', 'Vent holes 0.9 in wide, 1.5 in apart', 'Cable slots 3.8 x 1.4 in'];
+    case 'frame': return [`Frame height ${fmtIn(SKIRT)}`, `Wall ${fmtIn(T)} thick`];
+    case 'shelf': return [`Frame height ${fmtIn(SKIRT)}`, 'Corner notches 4 x 2 in'];
+    case 'cover': return ['Thickness 0.2 in'];
+    case 'screw': return ['Thread M6 x 1.0', 'Length under head 16 mm', 'Knob 16 mm wide, 6 mm thick', 'Hex socket 4 mm, 3 mm deep'];
+    case 'bracket': return ['L shape, 3 in long', 'Upright 1.2 in, foot 0.85 in', 'Steel 0.1 in thick'];
+    case 'hook': return ['Reaches 1.3 in from the leg', 'Plate 2.4 x 1.2 in'];
+    case 'strip': return ['Strip body up to 14 x 2 x 1.3 in', 'Assumed size, check your strip'];
+    case 'inlet': return ['Panel 2.4 in tall', 'Socket housing up to 4 x 2 in'];
+    case 'server': return [`Assumed real size ${SERVER.w} x ${SERVER.h} x ${SERVER.d} in`, size.z < SERVER.d ? `Drawn shortened to fit: ${fmtIn(size.z)} deep` : 'Drawn at full size'];
+    case 'switch': return [`Assumed real size ${SWITCH.w} x ${SWITCH.h} x ${SWITCH.d} in`, '1U height'];
+    case 'monitor': { const d = +$('monSize').value; return [`${d} in diagonal, 16:9`, `Screen ${fmtIn(d * 0.872)} x ${fmtIn(d * 0.49)}`, 'Rail 1.5 in tall']; }
+    default: return [];
+  }
+}
+function updateDims() {
+  dimGroup.clear();
+  dimLabels.forEach(d => d.el.remove());
+  dimLabels = [];
+  $('dFacts').textContent = '';
+  if (!hot || !showDims) return;
+  const b3 = itemBox(hot), { min, max } = b3, size = b3.getSize(new THREE.Vector3());
+  const off = Math.max(size.length() * 0.07, 0.06), tick = off * 0.35, verts = [];
+  const add = (a, b, text) => {
+    const d = b.clone().sub(a), side = new THREE.Vector3(Math.abs(d.x) > 1e-6 ? 0 : 1, Math.abs(d.x) > 1e-6 ? 1 : 0, 0).multiplyScalar(tick);
+    verts.push(a, b, a.clone().sub(side), a.clone().add(side), b.clone().sub(side), b.clone().add(side));
+    const el = document.createElement('div');
+    el.className = 'dim';
+    el.textContent = text;
+    $('dDimLabels').append(el);
+    dimLabels.push({ el, at: a.clone().add(b).multiplyScalar(0.5) });
+  };
+  const isScrew = hot.kind === 'screw';
+  const lengths = [['x', size.x], ['y', size.y], ['z', size.z]].sort((p, q) => q[1] - p[1]);
+  const name = axis => {
+    if (isScrew) return axis === lengths[0][0] ? 'Overall ' : 'Knob ';
+    return { x: 'W ', y: 'H ', z: 'D ' }[axis];
+  };
+  const skip = axis => isScrew && axis === lengths[2][0];
+  if (!skip('x')) add(v3(min.x, min.y - off, max.z + off), v3(max.x, min.y - off, max.z + off), name('x') + fmtDim(size.x));
+  if (!skip('y')) add(v3(max.x + off, min.y, max.z + off), v3(max.x + off, max.y, max.z + off), name('y') + fmtDim(size.y));
+  if (!skip('z')) add(v3(max.x + off, min.y - off, min.z), v3(max.x + off, min.y - off, max.z), name('z') + fmtDim(size.z));
+  // Feature measurements on the parts where they matter most.
+  if (hot.kind === 'leg') {
+    const x = min.x - off, z = (min.z + max.z) / 2;
+    add(v3(x, min.y + 5, z), v3(x, min.y + 7, z), 'Holes 2 in');
+    add(v3(x, min.y + 20, z), v3(x, min.y + 22, z), 'Strip 2 in');
+  }
+  if (hot.kind === 'plateSolid' || hot.kind === 'plateVent' || hot.kind === 'shelf') {
+    add(v3(max.x - LEG_W, max.y + off, max.z), v3(max.x, max.y + off, max.z), 'Notch 4 in');
+    add(v3(min.x, max.y + off, max.z - LEG_D), v3(min.x, max.y + off, max.z), 'Notch 2 in');
+  }
+  dimGroup.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(verts), dimMat));
+  const facts = keyFacts(hot, size);
+  if (facts.length) {
+    const head = document.createElement('b');
+    head.textContent = 'Key measurements';
+    $('dFacts').append(head);
+    facts.forEach(f => { const row = document.createElement('div'); row.textContent = f; $('dFacts').append(row); });
+  }
+}
+$('dDims').onclick = () => {
+  showDims = !showDims;
+  $('dDims').textContent = showDims ? 'Hide dimensions' : 'Show dimensions';
+  updateDims();
+};
+
+function selectItem(it) {
+  hot = it;
+  showContext = false;
+  syncList();
+  applyVisibility();
+  detailEl.hidden = !it;
+  mLabelEl.style.display = it ? '' : 'none';
+  finder.visible = !!it;
+  if (!it) { updateDims(); return; }
+  $('dName').textContent = it.name;
+  $('dDesc').textContent = it.desc;
+  $('dLabel').textContent = it.name;
+  $('dLabel').style.background = '#1d2733';
+  mLabelEl.textContent = it.name;
+  mLabelEl.style.background = '#1d2733';
+  $('dContext').textContent = 'Show with its part';
+  dCam.userData.aimed = false;
+  layout();
+  aimDetail(false);
+}
+$('dClose').onclick = () => selectItem(null);
+$('dContext').onclick = () => {
+  showContext = !showContext;
+  $('dContext').textContent = showContext ? 'Show item only' : 'Show with its part';
+  aimDetail();
+};
+['pointerdown', 'wheel'].forEach(t => $('dHead').addEventListener(t, e => e.stopPropagation()));
+
+// Split the view: side by side when wide, stacked when narrow.
+let mainRect = { w: 1, h: 1 }, dRect = { x: 0, y: 0, w: 0, h: 0 };
+function layout() {
+  const W = view.clientWidth, H = view.clientHeight;
+  detailEl.hidden = !hot;
+  if (!hot) { mainRect = { w: W, h: H }; dRect = { w: 0, h: 0 }; }
+  else if (W >= 620) { const d = Math.round(W * 0.45); mainRect = { w: W - d, h: H }; dRect = { w: d, h: H }; }
+  else { const d = Math.round(H * 0.55); mainRect = { w: W, h: H - d }; dRect = { w: W, h: d }; }
+  Object.assign(detailEl.style, { width: dRect.w + 'px', height: dRect.h + 'px', top: 'auto', bottom: '0' });
+  Object.assign(labelsEl.style, { right: W - mainRect.w + 'px', bottom: H - mainRect.h + 'px' });
+  const aspect = mainRect.w / mainRect.h;
+  if (Math.abs(camera.aspect - aspect) > 1e-4) { camera.aspect = aspect; camera.updateProjectionMatrix(); }
+  if (hot) { dCam.aspect = dRect.w / dRect.h; dCam.updateProjectionMatrix(); }
+}
+
+function renderDetail() {
+  const state = [root.visible, catalog.visible, grid.visible, cable && cable.visible];
+  const vis = parts.map(g => g.visible), markers = points.map(p => p.marker.visible), cordVis = cords.map(c => c.mesh.visible);
+  root.visible = true; catalog.visible = false; grid.visible = false; finder.visible = false;
+  if (cable) cable.visible = false;
+  cords.forEach(c => { c.mesh.visible = false; });
+  points.forEach(p => { p.marker.visible = false; });
+  const markerSet = new Set(points.map(p => p.marker));
+  parts.forEach(g => { g.visible = g === hot.group; });
+  const only = new Set(hot.meshes);
+  hot.group.traverse(o => { if (o.isMesh && !markerSet.has(o)) o.visible = showContext || only.has(o); });
+  scene.background = detailBg;
+  renderer.setViewport(view.clientWidth - dRect.w, 0, dRect.w, dRect.h);
+  renderer.setScissor(view.clientWidth - dRect.w, 0, dRect.w, dRect.h);
+  dimGroup.visible = showDims;
+  renderer.render(scene, dCam);
+  dimGroup.visible = false;
+  scene.background = mainBg;
+  hot.group.traverse(o => { if (o.isMesh && !markerSet.has(o)) o.visible = true; });
+  parts.forEach((g, i) => { g.visible = vis[i]; });
+  points.forEach((p, i) => { p.marker.visible = markers[i]; });
+  cords.forEach((c, i) => { c.mesh.visible = cordVis[i]; });
+  [root.visible, catalog.visible, grid.visible] = state;
+  if (cable) cable.visible = state[3];
+  finder.visible = true;
+}
+
+const tmp = new THREE.Vector3();
+function loop() {
+  requestAnimationFrame(loop);
+  drawDash(performance.now());
+  layout();
+  controls.update();
+  const H = view.clientHeight;
+  if (hot) itemBox(hot).getCenter(finder.position);
+  else { finder.visible = false; mLabelEl.style.display = 'none'; detailEl.hidden = true; }
+  renderer.setScissorTest(true);
+  renderer.setViewport(0, H - mainRect.h, mainRect.w, mainRect.h);
+  renderer.setScissor(0, H - mainRect.h, mainRect.w, mainRect.h);
+  renderer.render(scene, camera);
+  if (hot) {
+    dControls.update();
+    renderDetail();
+    tmp.copy(finder.position).project(dCam);
+    $('dLabel').style.transform = `translate(${(tmp.x + 1) / 2 * dRect.w + 10}px, ${(1 - tmp.y) / 2 * dRect.h - 10}px)`;
+    $('dLabel').style.display = showDims ? 'none' : '';
+    tmp.copy(finder.position).project(camera);
+    mLabelEl.style.transform = `translate(${(tmp.x + 1) / 2 * mainRect.w + 10}px, ${(1 - tmp.y) / 2 * mainRect.h - 10}px)`;
+    // Place measurement labels, nudging down any that would overlap.
+    const placed = dimLabels.map(d => {
+      tmp.copy(d.at).project(dCam);
+      return { d, x: (tmp.x + 1) / 2 * dRect.w, y: (1 - tmp.y) / 2 * dRect.h, w: d.el.offsetWidth, h: d.el.offsetHeight };
+    }).sort((a, b) => a.y - b.y);
+    placed.forEach((a, i) => {
+      for (let k = 0; k < i; k++) {
+        const b = placed[k];
+        if (Math.abs(a.x - b.x) < (a.w + b.w) / 2 + 2 && Math.abs(a.y - b.y) < (a.h + b.h) / 2 + 2) a.y = b.y + (a.h + b.h) / 2 + 3;
+      }
+      a.d.el.style.transform = `translate(calc(${a.x}px - 50%), calc(${a.y}px - 50%))`;
+    });
+  }
+  const w = mainRect.w, h = mainRect.h;
+  for (const it of catItems) {
+    if (!it.show) continue;
+    tmp.copy(it.wrap.position); tmp.y += it.size.y + 0.1; tmp.project(camera);
+    it.el.style.transform = `translate(calc(${(tmp.x + 1) / 2 * w}px - 50%), ${(1 - tmp.y) / 2 * h - 20}px)`;
+  }
+  for (const p of points) {
+    if (!p.show) continue;
+    p.marker.getWorldPosition(tmp).project(camera);
+    p.el.style.transform = `translate(${(tmp.x + 1) / 2 * w + 7}px, ${(1 - tmp.y) / 2 * h - 7}px)`;
+  }
+}
+
+for (const [k, c] of Object.entries(CATS)) {
+  const l = document.createElement('label');
+  l.className = 'cat';
+  l.innerHTML = `<input type="checkbox" ${catOn[k] ? 'checked' : ''}><span class="sw" style="background:${c.color}"></span>${c.name}`;
+  l.firstChild.onchange = e => { catOn[k] = e.target.checked; applyVisibility(); };
+  $('cats').append(l);
+}
+$('material').onchange = () => {
+  if ($('material').value !== 'custom') $('density').value = $('material').value;
+  renderBom();
+};
+$('density').oninput = () => {
+  const match = [...$('material').options].find(o => o.value === $('density').value);
+  $('material').value = match ? match.value : 'custom';
+  renderBom();
+};
+['modules', 'shelves', 'pattern', 'width', 'depth', 'stripShelf', 'monSize', 'monSide', 'plateThk'].forEach(id => $(id).onchange = build);
+const accBoxes = [...document.querySelectorAll('[data-acc]')];
+const accessoryBoxes = () => accBoxes.filter(b => true);
+function accChanged() {
+  const on = accessoryBoxes().filter(b => b.checked).length, all = accessoryBoxes().length;
+  $('accAll').checked = on === 0;
+  $('accAll').indeterminate = on > 0 && on < all;
+  renderBom();
+  applyVisibility();
+}
+accBoxes.forEach(b => b.onchange = () => { accOn[b.dataset.acc] = b.checked; accChanged(); });
+$('accAll').onchange = e => {
+  accessoryBoxes().forEach(b => { b.checked = !e.target.checked; accOn[b.dataset.acc] = b.checked; });
+  accChanged();
+};
+$('focus').onchange = () => { selectItem(null); applyVisibility(); applyExplode(); frame('iso'); };
+$('explode').oninput = applyExplode;
+document.querySelectorAll('[data-v]').forEach(b => b.onclick = () => frame(b.dataset.v));
+addEventListener('resize', resize);
+resize();
+build();
+loop();
+</script>
+</body>
+</html>
