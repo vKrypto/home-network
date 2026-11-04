@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home Network</title>
+<style>
+  :root { color-scheme: dark; --bg:#0d1626; --panel:rgba(16,27,46,.92); --line:#2f4364; --ink:#eef3fb; --muted:#9db0ca;
+          --router:#6ea8fe; --host:#7ee0a4; --virt:#c39bff; --store:#4fd1c5; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--ink); font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  a { color:var(--router); }
+  #stage { position:fixed; inset:0; overflow:hidden; }
+  canvas { display:block; }
+  #bar { position:absolute; top:12px; left:16px; right:356px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; pointer-events:none; }
+  #bar > * { pointer-events:auto; }
+  h1 { margin:0 8px 0 0; font-size:20px; text-shadow:0 1px 6px rgba(0,0,0,.6); }
+  .seg { display:flex; flex-wrap:wrap; background:var(--panel); border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .seg button { background:none; border:0; color:var(--muted); font:inherit; padding:8px 12px; min-height:36px; cursor:pointer; }
+  .seg button[aria-pressed=true] { background:#2a4570; color:var(--ink); }
+  .plain-link { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 12px; text-decoration:none; color:var(--ink); }
+  #panel { position:absolute; top:12px; right:12px; bottom:12px; width:328px; overflow:auto; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  #panel h3 { margin:0; font-size:17px; }
+  #panel h4 { margin:14px 0 4px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:600; }
+  .sub,.note { color:var(--muted); } .note { font-size:12.5px; }
+  .kv { margin:0; display:grid; grid-template-columns:auto 1fr; gap:2px 10px; } .kv dt { color:var(--muted); } .kv dd { margin:0; overflow-wrap:anywhere; }
+  ul { list-style:none; margin:0; padding:0; } li { padding:4px 0; border-top:1px solid #2a3c58; overflow-wrap:anywhere; } li:first-child { border-top:0; }
+  .linkbtn { background:none; border:0; color:var(--router); font:inherit; padding:0; cursor:pointer; text-align:left; }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#5b6b84; margin-right:6px; } .dot.up { background:var(--host); }
+  .lab { position:absolute; left:0; top:0; background:rgba(10,18,32,.86); border:1px solid var(--line); border-left:3px solid var(--c); border-radius:5px; color:var(--ink);
+         font:600 11.5px/1.25 system-ui,sans-serif; padding:3px 7px; cursor:pointer; white-space:nowrap; text-align:left; transition:opacity .15s; }
+  .lab small { display:block; font-weight:400; color:var(--muted); font-size:10.5px; }
+  .lab.dim { opacity:.3; } .lab.sel { background:#24406a; }
+  #err { position:absolute; inset:0; display:none; place-items:center; padding:24px; text-align:center; }
+  @media (max-width:820px) {
+    html,body { height:auto; }
+    #stage { position:relative; height:62vh; min-height:380px; }
+    #bar { right:16px; }
+    #panel { position:static; width:auto; margin:12px 16px 16px; }
+    h1 { width:100%; }
+    .lab small { display:none; }
+  }
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head>
+<body>
+<div id="stage">
+  <div id="bar">
+    <h1>Home Network</h1>
+    <div class="seg" id="modeSeg" role="group" aria-label="View"></div>
+    <div class="seg" id="floorSeg" role="group" aria-label="Floor"></div>
+    <a class="plain-link" href="plan.html">2D plan</a>
+  </div>
+  <div id="labels"></div>
+  <div id="err">The 3D view couldn't load. It needs internet access for three.js, and WebGL enabled.</div>
+</div>
+<section id="panel" aria-live="polite"></section>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+/* ---------- Network data: copied from local.internal, never includes credentials ---------- */
+const FLOORS = [ { id:'ground', name:'Ground floor' }, { id:'first', name:'First floor' }, { id:'second', name:'Second floor' }, { id:'top', name:'Top floor' } ];
+const LEVEL = { ground:0, first:1, second:2, top:3 };
+/* x and y are plan coordinates: 50 units = 1 m across, 40 units = 1 m deep */
+const DEVICES = {
+  up:{ name:'Ashutosh', role:'Main router, ISP-facing', kind:'router', floor:'top', x:75, y:245, ip:'192.168.1.1', facts:{ Network:'192.168.1.0/24', 'Wi-Fi':'Ashutosh', Hostname:'main-router.local.internal' }, probe:'http://192.168.1.1', services:[['Router admin','http://192.168.1.1']] },
+  er:{ name:'ER605', role:'Omada gateway and DHCP server', kind:'router', floor:'top', x:185, y:245, ip:'192.168.100.1', facts:{ LAN:'192.168.100.0/23', WAN:'192.168.1.4 (dynamic)', 'DNS handed out':'192.168.100.5', Hostname:'er605.local.internal' }, probe:'http://192.168.100.1', services:[['Router admin','http://192.168.100.1']] },
+  rec:{ name:'reception', role:"Pi-hole, the LAN's only DNS resolver", kind:'pi', floor:'top', x:320, y:170, ip:'192.168.100.5', facts:{ OS:'Debian 13', Hostname:'reception.local.internal' }, probe:'http://pihole.local.internal', services:[['Pi-hole admin','http://pihole.local.internal'],['Pi-hole DNS',null,':53'],['Chrony NTP',null,':123'],['Node Exporter',null,':9100']] },
+  ne:{ name:'networkeye', role:'Network and infrastructure monitoring', kind:'pi', floor:'top', x:320, y:245, ip:'192.168.100.3', facts:{ Hardware:'Raspberry Pi', Hostname:'networkeye.local.internal' }, probe:'http://grafana-net.local.internal', services:[['ntopng','https://ntopng.local.internal'],['Grafana (network)','http://grafana-net.local.internal'],['Uptime Kuma','http://uptime.local.internal'],['rsyslog receiver',null,':514']] },
+  pve:{ name:'Proxmox host', role:'Hypervisor, runs VM 100, owns the storage', kind:'server', floor:'top', x:320, y:320, ip:'192.168.100.4', facts:{ Hostname:'server1.local.internal', Boot:'sdb, 477 GB SSD', 'ZFS pool':'sda, 3.6 TB HDD (tank)' }, probe:'http://files-host.local.internal', services:[['Proxmox web UI','https://proxmox.local.internal'],['File Browser (tank)','http://files-host.local.internal']] },
+  sdc:{ name:'sdc', role:'backup_drive, 1 TB NTFS, attached to the Proxmox host', kind:'store', floor:'top', x:460, y:320, ip:'backup_drive', facts:{ 'Mount path':'/mnt/nfs/backup_drive', 'NFS clients':'creator-base, proxmox-ubuntu-10' }, services:[['SMB share','smb://192.168.100.4/backup_drive'],['FTP share','ftp://192.168.100.4/'],['NFS export',null,'192.168.100.4']] },
+  ubu:{ name:'proxmox-ubuntu-10', role:'VM 100 on the Proxmox host, runs every Docker stack. Virtual, so not a physical box', kind:'virt', floor:'top', x:550, y:230, ip:'192.168.100.10', facts:{ Swarm:'docker-swarm-1', Hostname:'docker-vm.local.internal' }, probe:'http://local.internal', services:[['Nginx Proxy Manager','http://npm.local.internal','proxy'],['Grafana (containers)','http://grafana.local.internal','monitoring'],['Graylog','http://graylog.local.internal','monitoring'],['Portainer','https://portainer.local.internal','monitoring'],['File Browser (stacks)','http://files-vm.local.internal','monitoring'],['n8n','http://n8n.local.internal','n8n'],['OmniRoute','http://omniroute.local.internal','ai'],['Hermes','http://hermes.local.internal','ai'],['Jellyfin','http://jellyfin.local.internal','media'],['Docker Registry UI','http://registry.local.internal','registry'],['Immich','http://immich.local.internal','immich'],['Nextcloud','http://nextcloud.local.internal','immich'],['job-seeker','http://jobseeker.local.internal','job_seeker'],['AI Team','http://ai-team.local.internal','ai_team']] },
+  ap:{ name:'AC1750 Wi-Fi AP', role:'Archer A7 in access point mode', kind:'router', floor:'second', x:330, y:255, ip:'192.168.100.7', facts:{ 'Wi-Fi':'Ashutosh-Secured', Hostname:'wifi-ap.local.internal' }, probe:'http://192.168.100.7', services:[['AP admin','http://192.168.100.7']] },
+  cb:{ name:'creator-base', role:'Admin PC, one machine with two network cards', kind:'pc', floor:'second', x:515, y:255, ip:'.8 wired / .6 Wi-Fi', facts:{ 'Wired (enp5s0)':'192.168.100.8', 'Wi-Fi (wlo1)':'192.168.100.6' }, services:[['AI Team (dev)','http://ai-team-dev.local.internal']] },
+  exc:{ name:'Excitel-Syrotech', role:'Router', kind:'router', floor:'first', x:135, y:255, ip:'', facts:{ Uplink:'Ethernet to the AC1750', 'Admin address':'Not recorded yet' }, services:[] },
+  syr:{ name:'Syrotech', role:'Router', kind:'router', floor:'ground', x:135, y:255, ip:'', facts:{ Uplink:'Ethernet to the AC1750', 'Admin address':'Not recorded yet' }, services:[] },
+};
+/* Riser slots in plan x: 378 ER605-AP, 386 NFS, 394 AP-first floor, 402 AP-ground floor */
+const LINKS = [
+  { a:'inet', b:'up', type:'eth', label:'Internet', segs:{ top:'M20 245H53' } },
+  { a:'up', b:'er', type:'eth', label:'Ethernet to ER605 WAN (192.168.1.4)', segs:{ top:'M97 245H163' } },
+  { a:'er', b:'rec', type:'eth', label:'Ethernet', segs:{ top:'M207 238H255V170H298' } },
+  { a:'er', b:'ne', type:'eth', label:'Ethernet', segs:{ top:'M207 245H298' } },
+  { a:'er', b:'pve', type:'eth', label:'Ethernet', segs:{ top:'M207 252H255V320H298' } },
+  { a:'pve', b:'sdc', type:'eth', label:'Attached drive', segs:{ top:'M342 320H438' } },
+  { a:'pve', b:'ubu', type:'virt', label:'Virtual machine on this host', segs:{ top:'M342 312H395V230H528' } },
+  { a:'er', b:'ap', type:'eth', label:'Ethernet', riser:[378,'top','second'], segs:{ top:'M185 223V140H378V30', second:'M378 30V170H330V233' } },
+  { a:'sdc', b:'cb', type:'nfs', label:'NFS mount (runs over the network)', riser:[386,'top','second'], segs:{ top:'M460 298V158H386V30', second:'M386 30V150H515V233' } },
+  { a:'ap', b:'cb', type:'eth', label:'Ethernet (192.168.100.8)', segs:{ second:'M352 262H493' } },
+  { a:'ap', b:'cb', type:'wifi', label:'Wi-Fi (192.168.100.6)', segs:{} },
+  { a:'ap', b:'exc', type:'eth', label:'Ethernet', riser:[394,'second','first'], segs:{ second:'M352 248H394V30', first:'M394 30V170H135V233' } },
+  { a:'ap', b:'syr', type:'eth', label:'Ethernet', riser:[402,'second','ground'], segs:{ second:'M352 254H402V30', ground:'M402 30V170H135V233' } },
+];
+const px = v => (v - 320) / 50, pz = v => (v - 200) / 40;
+const COL = { eth:0x2f6fd6, nfs:0x4fd1c5, wifi:0xf2c063, virt:0xc39bff };
+const CSS = { router:'#6ea8fe', pi:'#7ee0a4', server:'#7ee0a4', virt:'#c39bff', store:'#4fd1c5', pc:'#7ee0a4' };
+
+/* ---------- Scene ---------- */
+const FH = 3.1, GAP = 4.2;          // storey height, extra spacing when floors lift apart
+const stage = document.getElementById('stage');
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ antialias:true, preserveDrawingBuffer:true }); }
+catch (e) { document.getElementById('err').style.display = 'grid'; throw e; }
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+stage.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), .04).texture;
+scene.environmentIntensity = .45;
+const camera = new THREE.PerspectiveCamera(38, 1, .1, 400);
+camera.position.set(20, 8, 27);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 6.4, 0);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI * .495;
+controls.minDistance = 4; controls.maxDistance = 75;
+
+function canvasTex(w, h, draw, rx = 1, ry = 1, srgb = true) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry);
+  if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+}
+const speckle = (g, w, h, n, a, dark = true) => { for (let i = 0; i < n; i++) { g.fillStyle = `rgba(${dark && Math.random() < .5 ? '0,0,0' : '255,255,255'},${Math.random() * a})`; g.fillRect(Math.random() * w, Math.random() * h, 1 + Math.random() * 2, 1 + Math.random() * 2); } };
+scene.background = canvasTex(4, 256, (g, w, h) => { const l = g.createLinearGradient(0, 0, 0, h); l.addColorStop(0, '#4f8fd0'); l.addColorStop(.62, '#b9daf2'); l.addColorStop(1, '#f3ead8'); g.fillStyle = l; g.fillRect(0, 0, w, h); });
+scene.fog = new THREE.Fog(0xdfe8ee, 70, 190);
+
+const std = (o) => new THREE.MeshStandardMaterial({ roughness:.85, ...o });
+const T = {
+  plaster: canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#efe3cd'; g.fillRect(0, 0, w, h); speckle(g, w, h, 6000, .05); }, .5, .5),
+  stone: canvasTex(256, 256, (g, w, h) => { const c = ['#8f6f58', '#a17f64', '#7c5f4b', '#b0927a']; for (let y = 0; y < 8; y++) for (let x = -1; x < 5; x++) { g.fillStyle = c[Math.random() * 4 | 0]; g.fillRect(x * 64 + (y % 2) * 32 + 2, y * 32 + 2, 60, 28); } speckle(g, w, h, 3000, .08); }, .7, .7),
+  marble: canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#ddd8cf'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(120,115,105,.25)'; for (let i = 0; i < 9; i++) { g.beginPath(); g.moveTo(Math.random() * w, 0); g.bezierCurveTo(Math.random() * w, 80, Math.random() * w, 170, Math.random() * w, h); g.stroke(); } g.strokeStyle = '#a9a39a'; g.lineWidth = 2; g.strokeRect(0, 0, w, h); }, .5, .5),
+  wood: canvasTex(256, 256, (g, w, h) => { for (let i = 0; i < 8; i++) { const v = 95 + Math.random() * 35; g.fillStyle = `rgb(${v + 45},${v},${v - 40})`; g.fillRect(0, i * 32, w, 31); } speckle(g, w, h, 2500, .07); }, .5, .5),
+  grass: canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#5d8a3e'; g.fillRect(0, 0, w, h); for (let i = 0; i < 9000; i++) { g.fillStyle = `hsl(${85 + Math.random() * 30},45%,${25 + Math.random() * 25}%)`; g.fillRect(Math.random() * w, Math.random() * h, 2, 3); } }, 40, 40),
+  conc: canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#a8a59e'; g.fillRect(0, 0, w, h); speckle(g, w, h, 5000, .09); }, .5, .5),
+  road: canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#44464a'; g.fillRect(0, 0, w, h); speckle(g, w, h, 9000, .12); }, 12, 2),
+};
+const M = {
+  wall: std({ map:T.plaster }), accent: std({ color:0xb4553a }), trim: std({ color:0xf8f4ea }), inner: std({ color:0xf1ece2 }),
+  stone: std({ map:T.stone }), marble: std({ map:T.marble, roughness:.35 }), wood: std({ map:T.wood, roughness:.55 }), conc: std({ map:T.conc }),
+  frame: std({ color:0x33302c, roughness:.5, metalness:.4 }), rail: std({ color:0x25272b, roughness:.35, metalness:.8 }),
+  glass: new THREE.MeshStandardMaterial({ color:0x9fc6dc, roughness:.05, metalness:.3, transparent:true, opacity:.38, envMapIntensity:2.5 }),
+  door: std({ color:0x5b3419, roughness:.45 }), dark: std({ color:0x1c2027, roughness:.45, metalness:.3 }), metal: std({ color:0xa8afb8, roughness:.35, metalness:.8 }),
+  fabricA: std({ color:0x5f7d9a }), fabricB: std({ color:0xc9a26a }), sheet: std({ color:0xf0ede6 }), tank: std({ color:0x16181b, roughness:.6 }),
+  leaf: std({ color:0x3f7a35 }), bark: std({ color:0x5a3f2b }),
+};
+const shadow = m => { m.castShadow = m.receiveShadow = true; return m; };
+function box(p, x0, y0, z0, x1, y1, z1, mat) {
+  const m = shadow(new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), mat));
+  m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); p.add(m); return m;
+}
+
+/* Sun, sky light */
+scene.add(new THREE.HemisphereLight(0xcfe6ff, 0x8a7f6a, 1.2));
+const sun = new THREE.DirectionalLight(0xfff0d6, 3);
+sun.position.set(22, 45, 26); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left:-28, right:28, top:40, bottom:-22, near:1, far:120 });
+sun.shadow.bias = -.0004; sun.shadow.normalBias = .03;
+scene.add(sun);
+
+/* Plot: lawn, road, boundary wall, gate, trees, utility pole */
+const lawn = new THREE.Mesh(new THREE.PlaneGeometry(240, 240), std({ map:T.grass })); lawn.rotation.x = -Math.PI / 2; lawn.position.y = -.02; lawn.receiveShadow = true; scene.add(lawn);
+const road = new THREE.Mesh(new THREE.PlaneGeometry(240, 8), std({ map:T.road })); road.rotation.x = -Math.PI / 2; road.position.set(0, 0, 15); road.receiveShadow = true; scene.add(road);
+for (let x = -110; x < 110; x += 6) box(scene, x, .001, 14.92, x + 3, .012, 15.08, M.trim);
+box(scene, -1.2, 0, 4.5, 1.6, .04, 10.8, M.conc); box(scene, -1.4, 0, 4.5, 1.8, .22, 5.6, M.conc);
+const plot = [[-10, -8, 10, -7.8], [-10, 10.6, -1.8, 10.8], [2.2, 10.6, 10, 10.8], [-10, -8, -9.8, 10.8], [9.8, -8, 10, 10.8]];
+plot.forEach(([a, b, c, d]) => { box(scene, a, 0, b, c, 1.5, d, M.trim); box(scene, a - .03, 1.5, b - .03, c + .03, 1.6, d + .03, M.accent); });
+[-1.95, 2.35].forEach(x => { box(scene, x - .22, 0, 10.48, x + .22, 2.0, 10.92, M.stone); });
+for (let x = -1.65; x < 2.1; x += .22) box(scene, x, .1, 10.68, x + .05, 1.6, 10.72, M.rail);
+box(scene, -1.73, .15, 10.66, 2.13, .22, 10.74, M.rail); box(scene, -1.73, 1.5, 10.66, 2.13, 1.57, 10.74, M.rail);
+/* Trees: a branching skeleton with thousands of leaf cards, darker low and inside the crown for depth */
+const barkMat = std({ roughness:.95, map:canvasTex(128, 256, (g, w, h) => { g.fillStyle = '#4e3a2a'; g.fillRect(0, 0, w, h); for (let i = 0; i < 420; i++) { g.strokeStyle = `rgba(${Math.random() < .5 ? '20,12,6' : '125,100,78'},${.25 + Math.random() * .4})`; g.lineWidth = 1 + Math.random() * 2; const x = Math.random() * w, y = Math.random() * h; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (Math.random() - .5) * 6, y + 12 + Math.random() * 34); g.stroke(); } }, 1, 1) });
+const leafMat = new THREE.MeshStandardMaterial({ roughness:.75, side:THREE.DoubleSide, alphaTest:.45, map:canvasTex(256, 256, (g, w, h) => {
+  g.clearRect(0, 0, w, h);
+  for (let i = 0; i < 26; i++) {
+    const x = 28 + Math.random() * 200, y = 28 + Math.random() * 200, a = Math.random() * 6.28, l = 26 + Math.random() * 16, v = 150 + Math.random() * 95;
+    g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = `rgb(${v * .72},${v},${v * .5})`;
+    g.beginPath(); g.moveTo(-l, 0); g.quadraticCurveTo(0, -l * .48, l, 0); g.quadraticCurveTo(0, l * .48, -l, 0); g.fill();
+    g.strokeStyle = 'rgba(40,60,20,.45)'; g.lineWidth = 1; g.beginPath(); g.moveTo(-l, 0); g.lineTo(l, 0); g.stroke(); g.restore();
+  }
+}) });
+const leafCard = new THREE.PlaneGeometry(1, 1);
+const limbGeo = new THREE.CylinderGeometry(.68, 1, 1, 8, 1); limbGeo.translate(0, .5, 0);
+function seeded(s) { return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+const leafDummy = new THREE.Object3D(), Y = new THREE.Vector3(0, 1, 0);
+function addLeaves(parent, leaves, hue, rnd, centre, reach) {
+  const m = new THREE.InstancedMesh(leafCard, leafMat, leaves.length), c = new THREE.Color();
+  leaves.forEach((p, i) => {
+    leafDummy.position.copy(p); leafDummy.rotation.set(rnd() * 6.28, rnd() * 6.28, rnd() * 6.28); leafDummy.scale.setScalar(.5 + rnd() * .45); leafDummy.updateMatrix(); m.setMatrixAt(i, leafDummy.matrix);
+    const depth = Math.min(1, p.distanceTo(centre) / reach), up = (p.y - centre.y) / reach;
+    c.setHSL(hue + (rnd() - .5) * .035, .5 + rnd() * .12, Math.max(.1, .15 + depth * .15 + up * .08 + rnd() * .05)); m.setColorAt(i, c);
+  });
+  m.castShadow = m.receiveShadow = true; m.frustumCulled = false; parent.add(m);
+}
+function tree(x, z, s = 1, seed = 7, hue = .27) {
+  const rnd = seeded(seed * 7919 + 13), limbs = [], leaves = [], g = new THREE.Group(); g.position.set(x, 0, z); g.scale.setScalar(s); scene.add(g);
+  (function grow(p, d, len, r, depth) {
+    const q = new THREE.Quaternion().setFromUnitVectors(Y, d), mx = new THREE.Matrix4().compose(p, q, new THREE.Vector3(r, len, r)); limbs.push(mx);
+    const end = p.clone().addScaledVector(d, len);
+    if (depth === 0) { for (let i = 0; i < 26; i++) leaves.push(end.clone().add(new THREE.Vector3(rnd() - .5, (rnd() - .5) * .75, rnd() - .5).multiplyScalar(1.5))); return; }
+    const n = depth > 3 ? 4 : 3;
+    for (let i = 0; i < n; i++) {
+      const a = i / n * 6.28 + rnd() * 1.3, tilt = .4 + rnd() * .42;
+      const nd = d.clone().multiplyScalar(Math.cos(tilt)).add(new THREE.Vector3(Math.cos(a), .12, Math.sin(a)).multiplyScalar(Math.sin(tilt))).normalize();
+      grow(end, nd, len * (.66 + rnd() * .16), r * .62, depth - 1);
+    }
+  })(new THREE.Vector3(), new THREE.Vector3((rnd() - .5) * .08, 1, (rnd() - .5) * .08).normalize(), 2.1, .2, 4);
+  const trunk = new THREE.InstancedMesh(limbGeo, barkMat, limbs.length); limbs.forEach((m, i) => trunk.setMatrixAt(i, m)); trunk.castShadow = trunk.receiveShadow = true; trunk.frustumCulled = false; g.add(trunk);
+  const c = leaves.reduce((a, p) => a.add(p), new THREE.Vector3()).divideScalar(leaves.length);
+  addLeaves(g, leaves, hue, rnd, c, 3.4);
+}
+function hedge(x0, x1, z, seed) {
+  const rnd = seeded(seed), leaves = [];
+  for (let x = x0; x < x1; x += .035) leaves.push(new THREE.Vector3(x, .12 + Math.pow(rnd(), .7) * .85, z + (rnd() - .5) * .62));
+  addLeaves(scene, leaves, .28, rnd, new THREE.Vector3((x0 + x1) / 2, .1, z), 1);
+}
+tree(-7.9, 7.7, 1, 3, .27); tree(8.4, 8.8, .68, 11, .3); tree(-8, -5.6, 1.15, 5, .25); tree(8, -5.6, 1.05, 9, .29);
+hedge(-9.4, -2.6, 10.1, 21);
+const pole = shadow(new THREE.Mesh(new THREE.CylinderGeometry(.09, .13, 10, 8), M.conc)); pole.position.set(-11, 5, 11.6); scene.add(pole);
+box(scene, -11.7, 9.3, 11.54, -10.3, 9.42, 11.66, M.dark);
+
+/* Floors */
+const floorGroups = {}, sideGroups = { front:[], back:[], left:[], right:[] }, partitions = [];
+function wallPanel(parent, side, windows, h = FH, floor = true) {
+  const L = (side === 'front' || side === 'back') ? 12 : 9;
+  const s = new THREE.Shape(); s.moveTo(0, 0); s.lineTo(L, 0); s.lineTo(L, h); s.lineTo(0, h); s.closePath();
+  windows.forEach(w => { const p = new THREE.Path(); p.moveTo(w.u - w.w / 2, w.y); p.lineTo(w.u - w.w / 2, w.y + w.h); p.lineTo(w.u + w.w / 2, w.y + w.h); p.lineTo(w.u + w.w / 2, w.y); p.closePath(); s.holes.push(p); });
+  const g = new THREE.Group();
+  if (side === 'front') g.position.set(-6, 0, 4.3);
+  if (side === 'back') g.position.set(-6, 0, -4.5);
+  if (side === 'right') { g.position.set(6, 0, -4.5); g.rotation.y = -Math.PI / 2; }
+  if (side === 'left') { g.position.set(-5.8, 0, -4.5); g.rotation.y = -Math.PI / 2; }
+  g.add(shadow(new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth:.2, bevelEnabled:false }), M.wall)));
+  windows.forEach(w => {
+    const a = w.u - w.w / 2, b = w.u + w.w / 2, c = w.y, d = w.y + w.h, t = .06, z0 = .04, z1 = .16;
+    box(g, a, c, z0, a + t, d, z1, M.frame); box(g, b - t, c, z0, b, d, z1, M.frame);
+    box(g, a, c, z0, b, c + t, z1, M.frame); box(g, a, d - t, z0, b, d, z1, M.frame);
+    if (w.door) { box(g, a + t, c + t, .09, b - t, c + .9, .11, M.glass).castShadow = false; }
+    box(g, (a + b) / 2 - .025, c, z0 + .03, (a + b) / 2 + .025, d, z1 - .03, M.frame);
+    const gl = box(g, a + t, c + t, .09, b - t, d - t, .11, M.glass); gl.castShadow = false;
+    if (side === 'front' || side === 'right') { const outer = side === 'front' ? [.2, .3] : [-.1, 0]; box(g, a - .1, d, outer[0], b + .1, d + .1, outer[1], M.accent); if (!w.door) box(g, a - .08, c - .08, outer[0], b + .08, c, outer[1], M.trim); }
+  });
+  parent.add(g); sideGroups[side].push(g); return g;
+}
+function partition(p, x0, z0, x1, z1, gap) {
+  const g = new THREE.Group(); p.add(g); partitions.push(g);
+  const horiz = z0 === z1, a = horiz ? x0 : z0, b = horiz ? x1 : z1;
+  const seg = (s, e) => { if (e - s > .01) horiz ? box(g, s, 0, z0 - .05, e, FH, z0 + .05, M.inner) : box(g, x0 - .05, 0, s, x0 + .05, FH, e, M.inner); };
+  if (gap == null) seg(a, b); else { seg(a, gap - .5); seg(gap + .5, b); }
+}
+function slab(p, full) {
+  if (full) { box(p, -6, -.2, -4.5, 6, 0, 4.5, M.conc); return; }
+  box(p, -5.98, -.2, -4.48, -1.4, 0, 4.48, M.conc); box(p, 1.8, -.2, -4.48, 5.98, 0, 4.48, M.conc); box(p, -1.4, -.2, -1.75, 1.8, 0, 4.48, M.conc);
+}
+function room(p, x0, z0, x1, z1, mat) { const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, .02, z1 - z0), mat); m.position.set((x0 + x1) / 2, .012, (z0 + z1) / 2); m.receiveShadow = true; p.add(m); }
+function stairs(p) {
+  const n = 9, rise = FH / 2 / n, run = 1.85 / n;
+  for (let i = 0; i < n; i++) {
+    box(p, -1.35, 0, -1.85 - (i + 1) * run, -.25, (i + 1) * rise, -1.85 - i * run, M.conc);
+    box(p, -.15, FH / 2, -3.7 + i * run, .95, FH / 2 + (i + 1) * rise, -3.7 + (i + 1) * run, M.conc);
+  }
+  box(p, -1.35, FH / 2 - .12, -4.48, .95, FH / 2, -3.7, M.conc);
+  box(p, -.22, 0, -3.7, -.18, FH / 2, -1.85, M.inner);
+}
+function bed(p, x, z, rot = 0) { const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rot; p.add(g); box(g, -.8, 0, -1, .8, .3, 1, M.door); box(g, -.75, .3, -.95, .75, .52, .95, M.sheet); box(g, -.8, 0, -1.1, .8, 1, -1, M.door); box(g, -.6, .52, -.92, -.08, .64, -.55, M.fabricA); box(g, .08, .52, -.92, .6, .64, -.55, M.fabricA); box(g, -.75, .52, .1, .75, .56, .95, M.fabricB); }
+function sofa(p, x, z, rot = 0) { const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rot; p.add(g); box(g, -1, 0, -.4, 1, .42, .4, M.fabricA); box(g, -1, .42, -.4, 1, .85, -.2, M.fabricA); box(g, -1.12, 0, -.4, -1, .62, .4, M.fabricA); box(g, 1, 0, -.4, 1.12, .62, .4, M.fabricA); box(g, -.45, .02, .75, .45, .36, 1.25, M.wood); }
+function kitchen(p) { box(p, 2, 0, -4.4, 5.9, .88, -3.8, M.trim); box(p, 2, .88, -4.42, 5.9, .92, -3.78, M.dark); box(p, 2.4, 1.5, -4.48, 5.6, 2.2, -4.15, M.door); box(p, 5.2, 0, -3.7, 5.9, 1.9, -3.05, M.metal); }
+
+FLOORS.forEach((f, i) => {
+  const g = new THREE.Group(); g.position.y = i * FH; floorGroups[f.id] = g; scene.add(g);
+  slab(g, i === 0);
+  room(g, -6, -1.75, 6, 4.5, M.marble); room(g, -6, -4.5, -1.4, -1.75, M.wood); room(g, 1.8, -4.5, 6, -1.75, i === 1 ? M.conc : M.wood);
+  stairs(g);
+  // riser shaft: open timber-free duct beside the stairs
+  box(g, 1, 0, -1.8, 1.06, FH, -1.75, M.inner);
+  partition(g, -6, -1.75, -1.4, -1.75, -3); partition(g, 1.8, -1.75, 6, -1.75, 3);
+  partition(g, -1.4, -4.5, -1.4, -1.75); partition(g, 1.8, -4.5, 1.8, -1.75);
+  if (f.id !== 'top') { partition(g, -1.4, -1.75, -1.4, 4.5, 1); partition(g, 1.8, -1.75, 1.8, 4.5, 2.2); }
+
+  const front = [{ u:2.2, y:.9, w:2.1, h:1.45 }, { u:9.9, y:.9, w:2.1, h:1.45 }];
+  if (i === 0) front.push({ u:6.2, y:.05, w:1.5, h:2.35, door:true, main:true });
+  else front.push({ u:6.2, y:.05, w:1.7, h:2.35, door:true });
+  const fw = wallPanel(g, 'front', front);
+  box(fw, 4.85, 0, .2, 5.0, FH, .26, M.stone); box(fw, 7.4, 0, .2, 7.55, FH, .26, M.stone);
+  box(fw, 0, FH - .2, .2, 12, FH, .28, M.trim);
+  if (i === 0) {
+    box(fw, 5.5, .08, .12, 6.9, 2.38, .17, M.door);
+    box(fw, 6.72, 1, .17, 6.78, 1.3, .22, M.metal);
+    box(fw, 4.7, 2.55, .2, 7.7, 2.7, 1.5, M.accent);
+  } else {
+    box(fw, 4.6, -.02, .2, 7.8, .12, 1.55, M.conc);
+    for (let u = 4.65; u < 7.8; u += .16) box(fw, u, .12, 1.5, u + .025, 1.05, 1.525, M.rail);
+    for (let z = .3; z < 1.5; z += .16) { box(fw, 4.62, .12, z, 4.645, 1.05, z + .025, M.rail); box(fw, 7.755, .12, z, 7.78, 1.05, z + .025, M.rail); }
+    box(fw, 4.6, 1.05, 1.48, 7.8, 1.1, 1.55, M.rail); box(fw, 4.6, 1.05, .2, 4.66, 1.1, 1.55, M.rail); box(fw, 7.74, 1.05, .2, 7.8, 1.1, 1.55, M.rail);
+  }
+  wallPanel(g, 'back', [{ u:2.3, y:.95, w:1.5, h:1.25 }, { u:9.9, y:.95, w:1.5, h:1.25 }, { u:5.75, y:1.6, w:.8, h:1.1 }]);
+  wallPanel(g, 'left', [{ u:1.5, y:.95, w:1.4, h:1.3 }, { u:6.2, y:.95, w:1.8, h:1.3 }]);
+  wallPanel(g, 'right', [{ u:1.5, y:.95, w:1.4, h:1.3 }, { u:6.2, y:.95, w:1.8, h:1.3 }]);
+});
+const fl = floorGroups;
+bed(fl.second, -3.7, -1.2 + 2); box(fl.second, -5.7, 0, -4.2, -4.6, 2.2, -3.6, M.door);
+bed(fl.second, 3.9, -4.5 + 1.25); sofa(fl.first, -3.8, 3, Math.PI); kitchen(fl.first); bed(fl.first, 4, 2.2, Math.PI);
+sofa(fl.ground, -3.7, 2.8, Math.PI); bed(fl.ground, 4, 2.2, Math.PI); box(fl.ground, -5.8, .5, .8, -5.74, 1.4, 2.4, M.dark);
+box(fl.top, -5.6, 0, -4.2, -2, 2, -3.7, M.wood); box(fl.top, 2.2, 0, -4.3, 5.6, 1.8, -3.5, M.metal);
+
+/* Roof terrace */
+const roof = new THREE.Group(); roof.position.y = 4 * FH; floorGroups.roof = roof; scene.add(roof);
+box(roof, -6.15, -.2, -4.65, 6.15, 0, 4.65, M.conc);
+const rwall = (side, x0, z0, x1, z1) => { const g = new THREE.Group(); roof.add(g); sideGroups[side].push(g); box(g, x0, 0, z0, x1, 1, z1, M.wall); box(g, x0 - .03, 1, z0 - .03, x1 + .03, 1.07, z1 + .03, M.accent); };
+rwall('front', -6, 4.3, 6, 4.5); rwall('back', -6, -4.5, 6, -4.3); rwall('left', -6, -4.5, -5.8, 4.5); rwall('right', 5.8, -4.5, 6, 4.5);
+box(roof, -1.6, 0, -4.3, 2, 2.5, -1.5, M.wall); box(roof, -1.75, 2.5, -4.45, 2.15, 2.65, -1.35, M.accent); box(roof, -.3, 0, -1.47, .7, 2.1, -1.42, M.door);
+const tank = shadow(new THREE.Mesh(new THREE.CylinderGeometry(.62, .62, 1.05, 18), M.tank)); tank.position.set(.2, 3.2, -2.9); roof.add(tank);
+[[3.4, 0], [4.8, 0]].forEach(([x]) => { const p = box(roof, x, .8, -1, x + 1.2, .85, 1.1, M.dark); p.rotation.x = -.45; box(roof, x + .5, 0, .1, x + .6, .8, .2, M.metal); });
+
+/* Network devices */
+const devObjs = {}, hits = [], leds = [];
+function deviceModel(d) {
+  const g = new THREE.Group(); const c = new THREE.Color(CSS[d.kind]);
+  const led = (x, y, z) => { const m = new THREE.Mesh(new THREE.SphereGeometry(.022, 8, 6), new THREE.MeshBasicMaterial({ color:c })); m.position.set(x, y, z); g.add(m); leds.push(m); };
+  const stand = (h) => { box(g, -.35, 0, -.28, .35, h, .28, M.wood); return h; };
+  if (d.kind === 'router') { const h = stand(.75); box(g, -.26, h, -.17, .26, h + .07, .17, M.dark); [-.2, .2].forEach(x => { const a = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, .32), M.dark); a.position.set(x, h + .22, -.15); g.add(a); }); [-.12, -.04, .04, .12].forEach(x => led(x, h + .04, .175)); }
+  if (d.kind === 'pi') { const h = stand(.75); box(g, -.13, h, -.09, .13, h + .05, .09, std({ color:0x2d6e43 })); box(g, -.05, h + .05, -.04, .05, h + .08, .04, M.metal); led(.09, h + .07, .06); }
+  if (d.kind === 'server') { box(g, -.3, 0, -.4, .3, 1.5, .4, M.dark); for (let y = .25; y < 1.4; y += .28) { box(g, -.27, y, .39, .27, y + .2, .41, M.metal); led(.2, y + .1, .42); } }
+  if (d.kind === 'store') { const h = stand(.45); const m = shadow(new THREE.Mesh(new THREE.BoxGeometry(.2, .3, .3), M.dark)); m.position.y = h + .15; g.add(m); led(.05, h + .05, .16); }
+  if (d.kind === 'virt') { const m = new THREE.Mesh(new THREE.BoxGeometry(.7, .7, .7), new THREE.MeshStandardMaterial({ color:c, transparent:true, opacity:.28, emissive:c, emissiveIntensity:.5 })); m.position.y = 1; m.userData.spin = true; g.add(m); const e = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({ color:c })); m.add(e); }
+  if (d.kind === 'pc') { box(g, -.75, .72, -.38, .75, .77, .38, M.wood); [[-.7, -.33], [.67, -.33], [-.7, .3], [.67, .3]].forEach(([x, z]) => box(g, x, 0, z, x + .05, .72, z + .05, M.metal)); box(g, -.35, .95, -.2, .35, 1.36, -.17, M.dark); const s = new THREE.Mesh(new THREE.PlaneGeometry(.66, .37), new THREE.MeshBasicMaterial({ color:0x4f8fd0 })); s.position.set(0, 1.155, -.165); g.add(s); box(g, -.03, .77, -.2, .03, .95, -.17, M.metal); box(g, .5, 0, -.25, .7, .45, .2, M.dark); led(.6, .35, .21); }
+  return g;
+}
+const ring = (c) => { const m = new THREE.Mesh(new THREE.RingGeometry(.72, .82, 40), new THREE.MeshBasicMaterial({ color:c, side:THREE.DoubleSide })); m.rotation.x = -Math.PI / 2; m.position.y = .05; m.visible = false; return m; };
+const labelsEl = document.getElementById('labels');
+Object.entries(DEVICES).forEach(([id, d]) => {
+  const g = deviceModel(d); g.position.set(px(d.x), 0, pz(d.y)); floorGroups[d.floor].add(g);
+  const hit = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.8, 1.1), new THREE.MeshBasicMaterial({ visible:false })); hit.position.y = .9; hit.userData.id = id; g.add(hit); hits.push(hit);
+  const r = ring(CSS[d.kind]); g.add(r);
+  const lab = document.createElement('button'); lab.className = 'lab'; lab.type = 'button'; lab.style.setProperty('--c', CSS[d.kind]);
+  lab.innerHTML = `${d.name}${d.ip ? `<small>${d.ip}</small>` : ''}`;
+  lab.addEventListener('click', () => select(id)); labelsEl.appendChild(lab);
+  devObjs[id] = { g, r, lab, d };
+});
+
+/* Cables */
+function parse(seg) { const pts = []; let x, y; seg.match(/[MHV][^MHV]+/g).forEach(t => { const k = t[0], n = t.slice(1).trim().split(/\s+/).map(Number); if (k === 'M') { x = n[0]; y = n[1]; } if (k === 'H') x = n[0]; if (k === 'V') y = n[0]; pts.push(new THREE.Vector3(px(x), .05, pz(y))); }); return pts; }
+function poly(pts) { const c = new THREE.CurvePath(); for (let i = 1; i < pts.length; i++) c.add(new THREE.LineCurve3(pts[i - 1], pts[i])); return c; }
+const pulses = [], linkMeshes = [], stretched = [];
+LINKS.forEach((l, i) => {
+  const mat = new THREE.MeshStandardMaterial({ color:COL[l.type], emissive:COL[l.type], emissiveIntensity:.35, roughness:.5, transparent:true });
+  linkMeshes[i] = { mat, l };
+  Object.entries(l.segs).forEach(([floor, seg]) => {
+    const curve = poly(parse(seg));
+    const m = new THREE.Mesh(new THREE.TubeGeometry(curve, 80, l.type === 'virt' ? .025 : .042, 6), mat); floorGroups[floor].add(m);
+    const pm = new THREE.Mesh(new THREE.SphereGeometry(.06, 8, 6), new THREE.MeshBasicMaterial({ color:COL[l.type], transparent:true })); floorGroups[floor].add(pm);
+    pulses.push({ pm, curve, t:Math.random(), s:.18 + Math.random() * .1, link:i });
+  });
+  if (l.riser) {
+    const [sx, a, b] = l.riser; const m = new THREE.Mesh(new THREE.CylinderGeometry(.042, .042, 1, 6), mat); scene.add(m);
+    stretched.push({ m, x:px(sx), z:pz(30), a, b });
+  }
+});
+/* Wi-Fi link to the PC, drawn as an arc of dots */
+{ const i = LINKS.findIndex(l => l.type === 'wifi'); const a = DEVICES.ap, b = DEVICES.cb;
+  const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(px(a.x), 1, pz(a.y)), new THREE.Vector3((px(a.x) + px(b.x)) / 2, 2.6, pz(a.y) - .3), new THREE.Vector3(px(b.x), 1.2, pz(b.y)));
+  const mat = new THREE.MeshBasicMaterial({ color:COL.wifi, transparent:true }); linkMeshes[i] = { mat, l:LINKS[i] };
+  for (let k = 1; k < 15; k++) { const s = new THREE.Mesh(new THREE.SphereGeometry(.03, 6, 5), mat); s.position.copy(curve.getPoint(k / 15)); floorGroups.second.add(s); }
+}
+/* Fibre drop from the street pole into the top floor */
+const drop = new THREE.Mesh(new THREE.CylinderGeometry(.025, .025, 1, 6), M.dark); scene.add(drop);
+/* Wi-Fi coverage: expanding rings. Illustrative, not a signal measurement */
+const waves = [];
+[['up'], ['ap']].forEach(([id]) => { for (let k = 0; k < 3; k++) { const m = new THREE.Mesh(new THREE.RingGeometry(.97, 1, 64), new THREE.MeshBasicMaterial({ color:COL.wifi, transparent:true, side:THREE.DoubleSide, depthWrite:false })); m.rotation.x = -Math.PI / 2; m.position.y = .9; devObjs[id].g.add(m); waves.push({ m, t:k / 3 }); } });
+
+/* ---------- State ---------- */
+let mode = 'outside', floorSel = 'all', selected = null, spread = 0, tween = null;
+const $ = id => document.getElementById(id);
+const floorY = (id, s = spread) => (id === 'roof' ? 4 : LEVEL[id]) * (FH + s * GAP);
+function flyTo(pos, tgt) { tween = { p:new THREE.Vector3(...pos), t:new THREE.Vector3(...tgt), k:0 }; }
+controls.addEventListener('start', () => { tween = null; });
+function view() {
+  if (mode === 'outside') return flyTo([20, 8, 27], [0, 6.4, 0]);
+  if (floorSel === 'all') return flyTo([31, 28, 47], [0, 17, 0]);
+  const y = floorY(floorSel, 1); flyTo([9, y + 9, 15], [0, y + .8, 0]);
+}
+function setMode(m) { mode = m; if (m === 'outside') { floorSel = 'all'; select(null, true); } sync(); view(); }
+function setFloor(f) { floorSel = f; if (f !== 'all') mode = 'inside'; sync(); view(); }
+function sync() {
+  document.querySelectorAll('#modeSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === mode));
+  document.querySelectorAll('#floorSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === floorSel));
+  const lim = floorSel === 'all' ? 9 : LEVEL[floorSel];
+  FLOORS.forEach(f => { floorGroups[f.id].visible = LEVEL[f.id] <= lim; });
+  floorGroups.roof.visible = floorSel === 'all';
+}
+function select(id, quiet) {
+  selected = id;
+  Object.entries(devObjs).forEach(([k, o]) => { o.r.visible = k === id; o.lab.classList.toggle('sel', k === id); const near = !id || k === id || LINKS.some(l => (l.a === id && l.b === k) || (l.b === id && l.a === k)); o.lab.classList.toggle('dim', !near); });
+  linkMeshes.forEach(({ mat, l }) => { const on = !id || l.a === id || l.b === id; mat.opacity = on ? 1 : .12; });
+  pulses.forEach(p => { const l = LINKS[p.link]; p.pm.visible = !id || l.a === id || l.b === id; });
+  render();
+  if (id && !quiet) { mode = 'inside'; floorSel = DEVICES[id].floor; sync(); const d = DEVICES[id], y = floorY(d.floor, 1); flyTo([px(d.x) * .4 + 6, y + 6, pz(d.y) + 9], [px(d.x) * .7, y + .8, pz(d.y) * .6]); if (matchMedia('(max-width:820px)').matches) $('panel').scrollIntoView({ behavior:'smooth', block:'start' }); }
+}
+[['outside', 'Outside'], ['inside', 'See inside']].forEach(([v, n]) => { const b = document.createElement('button'); b.type = 'button'; b.dataset.v = v; b.textContent = n; b.onclick = () => { setMode(v); }; $('modeSeg').appendChild(b); });
+[['all', 'All floors'], ['top', 'Top'], ['second', 'Second'], ['first', 'First'], ['ground', 'Ground']].forEach(([v, n]) => { const b = document.createElement('button'); b.type = 'button'; b.dataset.v = v; b.textContent = n; b.onclick = () => { select(null, true); setFloor(v); }; $('floorSeg').appendChild(b); });
+
+/* ---------- Panel ---------- */
+const status = {}; let checked = false;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+function render() {
+  const box = $('panel');
+  if (!selected) {
+    const svc = new Set(Object.values(DEVICES).flatMap(d => d.services.filter(s => /^https?:/.test(s[1] || '')).map(s => s[1])));
+    const up = [...svc].filter(u => status[u]).length;
+    const list = [...FLOORS].reverse().map(f => `<h4>${f.name}</h4><ul>${Object.entries(DEVICES).filter(([, d]) => d.floor === f.id).map(([k, d]) => `<li><button class="linkbtn" data-go="${k}">${esc(d.name)}</button>${d.ip ? ` <span class="sub">· ${esc(d.ip)}</span>` : ''}</li>`).join('')}</ul>`).join('');
+    box.innerHTML = `<h3>The house at a glance</h3><p class="sub" style="margin:6px 0">Internet comes in from the street to the top floor. One Ethernet run feeds the AP on the second floor, which feeds the routers below.</p>
+      <dl class="kv"><dt>Web services answering</dt><dd>${location.protocol === 'https:' ? 'Only checked on a local copy' : checked ? up + ' of ' + svc.size : 'Checking…'}</dd><dt>Wi-Fi networks</dt><dd>Ashutosh, Ashutosh-Secured</dd><dt>Cable colours</dt><dd><span style="color:#6ea8fe">Blue</span> Ethernet, <span style="color:#4fd1c5">teal</span> NFS, <span style="color:#f2c063">amber</span> Wi-Fi, <span style="color:#c39bff">purple</span> virtual</dd></dl>${list}
+      <p class="note">Select "See inside" to lift the floors apart, or pick a device to go to it. Drag to orbit, scroll to zoom.</p>
+      <p class="note" style="margin-bottom:0">Devices and addresses come from local.internal (snapshot 5 Nov 2026), without logins. The house, rooms and cable routes are placeholders. A grey dot means no reply to this browser, which doesn't prove a service is down.</p>`;
+    return;
+  }
+  const d = DEVICES[selected], floor = FLOORS.find(f => f.id === d.floor).name;
+  const conns = LINKS.filter(l => l.a === selected || l.b === selected).map(l => { const o = l.a === selected ? l.b : l.a; return `<li>${o === 'inet' ? 'Internet' : `<button class="linkbtn" data-go="${o}">${esc(DEVICES[o].name)}</button>`} <span class="sub">· ${esc(l.label)}</span></li>`; }).join('');
+  const svcs = d.services.map(([n, u, note]) => { const t = note ? ` <span class="sub">· ${esc(note)}</span>` : ''; return u ? `<li>${/^https?:/.test(u) ? `<span class="dot${status[u] ? ' up' : ''}"></span>` : ''}<a href="${esc(u)}" target="_blank" rel="noopener">${esc(n)}</a>${t}</li>` : `<li>${esc(n)}${t}</li>`; }).join('');
+  const facts = { ...(d.ip && !['pc', 'store'].includes(d.kind) ? { Address:d.ip } : {}), ...d.facts };
+  box.innerHTML = `<h3>${esc(d.name)}</h3><div class="sub">${esc(d.role)} · ${floor}</div><h4>Details</h4><dl class="kv">${Object.entries(facts).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
+    <h4>Connected to</h4><ul>${conns}</ul>${svcs ? `<h4>Services</h4><ul>${svcs}</ul>` : ''}<p style="margin:12px 0 0"><button class="linkbtn" data-go="">← Whole house</button></p>`;
+}
+$('panel').addEventListener('click', e => { const b = e.target.closest('[data-go]'); if (!b) return; if (b.dataset.go) select(b.dataset.go); else { select(null, true); floorSel = 'all'; sync(); view(); } });
+
+/* Click on a device */
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(); let down = null;
+const el = renderer.domElement;
+el.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+el.addEventListener('pointerup', e => {
+  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
+  const r = el.getBoundingClientRect(); ndc.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const h = ray.intersectObjects(hits.filter(m => devObjs[m.userData.id].g.parent.visible), false)[0];
+  if (h && mode === 'inside') select(h.object.userData.id);
+});
+
+/* Layout and loop */
+function size() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h); const side = innerWidth > 820 ? 352 : 0; camera.aspect = w / h; camera.setViewOffset(w, h, side / 2, 0, w, h); camera.updateProjectionMatrix(); }
+addEventListener('resize', size); size();
+const clock = new THREE.Clock(), v = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0), camDir = new THREE.Vector3();
+const NORMALS = { front:[0, 1], back:[0, -1], left:[-1, 0], right:[1, 0] };
+function stretch(m, a, b) { v.subVectors(b, a); m.position.copy(a).addScaledVector(v, .5); m.scale.set(1, v.length(), 1); m.quaternion.setFromUnitVectors(up, v.clone().normalize()); }
+function frame() {
+  requestAnimationFrame(frame);
+  const dt = Math.min(clock.getDelta(), .25), inside = mode === 'inside';
+  spread += ((inside ? 1 : 0) - spread) * Math.min(1, dt * 3.5);
+  if (Math.abs(spread - (inside ? 1 : 0)) < .001) spread = inside ? 1 : 0;
+  FLOORS.forEach(f => { floorGroups[f.id].position.y = floorY(f.id); }); roof.position.y = floorY('roof');
+  if (tween) { const a = 1 - Math.exp(-dt * 3.5); camera.position.lerp(tween.p, a); controls.target.lerp(tween.t, a); if (camera.position.distanceTo(tween.p) < .02) tween = null; }
+  controls.update();
+  camDir.subVectors(camera.position, controls.target).setY(0).normalize();
+  Object.entries(sideGroups).forEach(([s, gs]) => { const [nx, nz] = NORMALS[s], hide = spread > .02 && nx * camDir.x + nz * camDir.z > .2; gs.forEach(g => { g.visible = !hide; }); });
+  partitions.forEach(g => { g.scale.y = 1 - spread * .62; });
+  stretched.forEach(s => { const lo = new THREE.Vector3(s.x, floorY(s.b) + .05, s.z), hi = new THREE.Vector3(s.x, floorY(s.a) + .05, s.z); stretch(s.m, lo, hi); s.m.visible = floorSel === 'all' ; });
+  stretch(drop, new THREE.Vector3(-11, 9.4, 11.6), new THREE.Vector3(-6, floorY('top') + 2.4, pz(245)));
+  drop.visible = floorSel === 'all' || floorSel === 'top';
+  const time = clock.elapsedTime;
+  pulses.forEach(p => { p.t = (p.t + dt * p.s) % 1; p.pm.position.copy(p.curve.getPointAt(p.t)); p.pm.position.y += .03; });
+  leds.forEach((m, i) => { m.visible = Math.sin(time * 5 + i * 1.7) > -.65; });
+  waves.forEach(w => { w.t = (w.t + dt * .18) % 1; const s = .5 + w.t * 6; w.m.scale.set(s, s, 1); w.m.material.opacity = inside ? (1 - w.t) * .55 : 0; w.m.visible = inside; });
+  Object.values(devObjs).forEach(o => { o.r.rotation.z = time; o.g.traverse(c => { if (c.userData.spin) c.rotation.y = time * .5; }); });
+  // labels
+  const W = stage.clientWidth, H = stage.clientHeight, placed = [];
+  Object.values(devObjs).forEach(o => {
+    const show = spread > .6 && o.g.parent.visible;
+    o.lab.style.display = show ? 'block' : 'none'; if (!show) return;
+    o.g.getWorldPosition(v); v.y += o.d.kind === 'server' || o.d.kind === 'virt' ? 1.75 : 1.3; v.project(camera);
+    placed.push({ o, x:(v.x + 1) / 2 * W, y:(1 - v.y) / 2 * H, w:o.lab.offsetWidth, h:o.lab.offsetHeight });
+  });
+  // stack labels upward where they would overlap
+  placed.sort((a, b) => b.y - a.y).forEach((p, i) => {
+    for (let moved = true; moved;) { moved = false; for (let j = 0; j < i; j++) { const q = placed[j]; if (Math.abs(p.x - q.x) < (p.w + q.w) / 2 + 3 && Math.abs(p.y - q.y) < (p.h + q.h) / 2 + 2) { p.y = q.y - (p.h + q.h) / 2 - 3; moved = true; } } }
+    p.o.lab.style.transform = `translate(-50%,-100%) translate(${p.x}px,${p.y}px)`;
+  });
+  renderer.render(scene, camera);
+}
+
+/* Live reachability: an opaque reply proves the server answered, nothing more */
+async function probe(u) { try { await fetch(u, { mode:'no-cors', cache:'no-store', signal:AbortSignal.timeout(4000) }); return true; } catch { return false; } }
+const urls = new Set(Object.values(DEVICES).flatMap(d => [d.probe, ...d.services.map(s => s[1])]).filter(u => /^https?:/.test(u || '')));
+if (location.protocol !== 'https:') Promise.all([...urls].map(async u => { status[u] = await probe(u); })).then(() => { checked = true; render(); });
+
+window.__home = { select, setMode, setFloor };
+sync(); render(); frame();
+</script>
+</body>
+</html>
