@@ -80,7 +80,7 @@ const DEVICES = {
   xcl:{ name:'Excitel', role:'PON router, redundant ER605 WAN', kind:'router', floor:'top', x:440, y:215, ip:'', facts:{ Connection:'PON fibre from the nearby pole', Downlink:'Ethernet to ER605 WAN', 'Admin address':'Not recorded yet' }, services:[] },
 
   ap:{ name:'AC1750 Wi-Fi AP', role:'Archer A7 in access point mode', kind:'router', floor:'second', x:265, y:180, ip:'192.168.100.7', facts:{ Location: 'Upper System room, second floor', 'Wi-Fi':'Ashutosh-Secured', Hostname:'wifi-ap.local.internal' }, probe:'http://192.168.100.7', services:[['AP admin','http://192.168.100.7']] },
-  cb:{ name:'creator-base', role:'Admin PC, one machine with two network cards', kind:'pc', floor:'second', x:185, y:245, ip:'.8 wired / .6 Wi-Fi', facts:{ 'Wired (enp5s0)':'192.168.100.8', 'Wi-Fi (wlo1)':'192.168.100.6' }, services:[['AI Team (dev)','http://ai-team-dev.local.internal']] },
+  cb:{ name:'creator-base', role:'Admin PC, one machine with two network cards', kind:'pc', floor:'second', x:175, y:176, ip:'.8 wired / .6 Wi-Fi', facts:{ 'Wired (enp5s0)':'192.168.100.8', 'Wi-Fi (wlo1)':'192.168.100.6' }, services:[['AI Team (dev)','http://ai-team-dev.local.internal']] },
   exc:{ name:'Excitel-Syrotech', role:'Router', kind:'router', floor:'first', x:350, y:134, flip:true, elev:2.15, ip:'', facts:{ Location:'On the wardrobe, hall side of the bathroom wall', Uplink: 'Ethernet to the AC1750', 'Admin address':'Not recorded yet' }, services:[] },
   syr:{ name:'Syrotech', role:'Router', kind:'router', floor:'ground', x:550, y:185, ip:'', facts:{ Uplink:'Ethernet to the AC1750', 'Admin address':'Not recorded yet' }, services:[] },
 };
@@ -109,8 +109,8 @@ const LINKS = [
   { a:'pve', b:'sdc', type:'eth', label:'Attached drive', segs:{ top:'M92 215H128' } },
   { a:'pve', b:'ubu', type:'virt', label:'Virtual machine on this host', segs:{ top:'M92 208H110V185H240V193' } },
   { a:'er', b:'ap', type:'eth', label:'Back of the ER605 to front of the AP', riser:[77,'top','second'], segs:{ top:'M130 93V90H77V28', second:'M77 28V120H240V210H265V202' } },
-  { a:'sdc', b:'cb', type:'nfs', label:'NFS mount (runs over the network)', riser:[82,'top','second'], segs:{ top:'M150 193V176H106V88H82V28', second:'M82 28V135H185V223' } },
-  { a:'ap', b:'cb', type:'eth', label:'From the back of the AP (192.168.100.8)', segs:{ second:'M260 158V148H295V245H207' } },
+  { a:'sdc', b:'cb', type:'nfs', label:'NFS mount (runs over the network)', riser:[82,'top','second'], segs:{ top:'M150 193V176H106V88H82V28', second:'M82 28V135H175V154' } },
+  { a:'ap', b:'cb', type:'eth', label:'From the back of the AP (192.168.100.8)', segs:{ second:'M258 158V156H225V176H197' } },
   { a:'ap', b:'cb', type:'wifi', label:'Wi-Fi (192.168.100.6)', segs:{} },
   { a:'ap', b:'exc', type:'eth', label:'Back of the AP to front of this router', riser:[87,'second','first'], segs:{ second:'M265 158V125H87V28', first:'M87 28V128H350V120' } },
   { a:'ap', b:'syr', type:'eth', label:'Back of the AP to front of this router', riser:[92,'second','ground'], segs:{ second:'M270 158V130H92V28', ground:'M92 28V150H400V225H550V207' } },
@@ -360,7 +360,7 @@ FLOORS.forEach((f, i) => {
 });
 const fl = floorGroups;
 /* The second "System" desk on the second floor has no known device */
-{ const [x0, y0, x1, y1] = LAYOUT.second.desks[0]; box(fl.second, px(x0), .72, pz(y0), px(x1), .77, pz(y1), M.wood); [[x0, y0], [x1 - 3, y0], [x0, y1 - 4], [x1 - 3, y1 - 4]].forEach(([x, y]) => box(fl.second, px(x), 0, pz(y), px(x) + .05, .72, pz(y) + .05, M.metal)); const cx = px((x0 + x1) / 2); box(fl.second, cx - .3, .92, pz(y0) + .05, cx + .3, 1.28, pz(y0) + .09, M.dark); box(fl.second, cx - .03, .77, pz(y0) + .05, cx + .03, .92, pz(y0) + .09, M.metal); }
+{ const [x0, y0, x1, y1] = LAYOUT.second.desks[1]; box(fl.second, px(x0), .72, pz(y0), px(x1), .77, pz(y1), M.wood); [[x0, y0], [x1 - 3, y0], [x0, y1 - 4], [x1 - 3, y1 - 4]].forEach(([x, y]) => box(fl.second, px(x), 0, pz(y), px(x) + .05, .72, pz(y) + .05, M.metal)); const cx = px((x0 + x1) / 2); box(fl.second, cx - .3, .92, pz(y0) + .05, cx + .3, 1.28, pz(y0) + .09, M.dark); box(fl.second, cx - .03, .77, pz(y0) + .05, cx + .03, .92, pz(y0) + .09, M.metal); }
 { const [x0, y0, x1, y1] = LAYOUT.first.wardrobe, n = 6, X0 = px(x0), X1 = px(x1), Z0 = pz(y0), Z1 = pz(y1) - .05;
   box(fl.first, X0, 0, Z0, X1, 2.15, Z1, M.door);
   for (let i = 1; i < n; i++) { const x = X0 + (X1 - X0) * i / n; box(fl.first, x - .008, .05, Z0 - .006, x + .008, 2.1, Z0, M.dark); if (i % 2) { box(fl.first, x - .07, .95, Z0 - .03, x - .04, 1.25, Z0, M.metal); box(fl.first, x + .04, .95, Z0 - .03, x + .07, 1.25, Z0, M.metal); } } }
