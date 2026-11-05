@@ -31,6 +31,7 @@
   .lab { position:absolute; left:0; top:0; background:rgba(10,18,32,.86); border:1px solid var(--line); border-left:3px solid var(--c); border-radius:5px; color:var(--ink);
          font:600 11.5px/1.25 system-ui,sans-serif; padding:3px 7px; cursor:pointer; white-space:nowrap; text-align:left; transition:opacity .15s; }
   .lab small { display:block; font-weight:400; color:var(--muted); font-size:10.5px; }
+  .lab .ssid { display:flex; align-items:center; gap:4px; margin-top:2px; color:#f2c063; font-size:11px; }
   .lab.dim { opacity:.3; } .lab.sel { background:#24406a; }
   #compass { position:absolute; left:16px; bottom:16px; pointer-events:none; }
   #err { position:absolute; inset:0; display:none; place-items:center; padding:24px; text-align:center; }
@@ -66,6 +67,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 /* ---------- Network data: copied from local.internal, never includes credentials ---------- */
 const FLOORS = [ { id:'ground', name:'Ground floor' }, { id:'first', name:'First floor' }, { id:'second', name:'Second floor' }, { id:'top', name:'Top floor' } ];
+const CHANNEL = { 'Ashutosh':9, 'Ashutosh-Secured':8 };
 const LEVEL = { ground:0, first:1, second:2, top:3 };
 /* x and y are plan coordinates, see LAYOUT */
 const DEVICES = {
@@ -74,15 +76,17 @@ const DEVICES = {
   ne:{ name:'networkeye', role:'Network and infrastructure monitoring', kind:'pi', floor:'top', x:270, y:115, ip:'192.168.100.3', facts:{ Hardware:'Raspberry Pi', Hostname:'networkeye.local.internal' }, probe:'http://grafana-net.local.internal', services:[['ntopng','https://ntopng.local.internal'],['Grafana (network)','http://grafana-net.local.internal'],['Uptime Kuma','http://uptime.local.internal'],['rsyslog receiver',null,':514']] },
   pve:{ name:'Proxmox host', role:'Hypervisor, runs VM 100, owns the storage', kind:'server', floor:'top', x:70, y:215, ip:'192.168.100.4', facts:{ Hostname:'server1.local.internal', Boot:'sdb, 477 GB SSD', 'ZFS pool':'sda, 3.6 TB HDD (tank)' }, probe:'http://files-host.local.internal', services:[['Proxmox web UI','https://proxmox.local.internal'],['File Browser (tank)','http://files-host.local.internal']] },
   sdc:{ name:'sdc', role:'backup_drive, 1 TB NTFS, attached to the Proxmox host', kind:'store', floor:'top', x:150, y:215, ip:'backup_drive', facts:{ 'Mount path':'/mnt/nfs/backup_drive', 'NFS client': 'proxmox-ubuntu-10' }, services:[['SMB share','smb://192.168.100.4/backup_drive'],['FTP share','ftp://192.168.100.4/'],['NFS export',null,'192.168.100.4']] },
-  ubu:{ name:'proxmox-ubuntu-10', role:'VM 100 on the Proxmox host, runs every Docker stack. Virtual, so not a physical box', kind:'virt', floor:'top', x:240, y:215, ip:'192.168.100.10', facts:{ Swarm:'docker-swarm-1', Hostname:'docker-vm.local.internal' }, probe:'http://local.internal', services:[['Nginx Proxy Manager','http://npm.local.internal','proxy'],['Grafana (containers)','http://grafana.local.internal','monitoring'],['Graylog','http://graylog.local.internal','monitoring'],['Portainer','https://portainer.local.internal','monitoring'],['File Browser (stacks)','http://files-vm.local.internal','monitoring'],['n8n','http://n8n.local.internal','n8n'],['OmniRoute','http://omniroute.local.internal','ai'],['Hermes','http://hermes.local.internal','ai'],['Jellyfin','http://jellyfin.local.internal','media'],['Docker Registry UI','http://registry.local.internal','registry'],['Immich','http://immich.local.internal','immich'],['Nextcloud','http://nextcloud.local.internal','immich'],['job-seeker','http://jobseeker.local.internal','job_seeker'],['AI Team','http://ai-team.local.internal','ai_team']] },  air:{ name:'Airtel-Ashutosh', role:'Airtel PON router, redundant ER605 WAN', kind:'router', floor:'top', x:345, y:215, ip:'192.168.1.1', facts:{ Network:'192.168.1.0/24', 'Wi-Fi':'Ashutosh', Hostname:'main-router.local.internal', Connection:'PON fibre from the nearby pole', Downlink:'Ethernet to ER605 WAN (192.168.1.4)' }, probe:'http://192.168.1.1', services:[['Router admin','http://192.168.1.1']] },
-  xcl:{ name:'Excitel', role:'PON router, redundant ER605 WAN', kind:'router', floor:'top', x:440, y:215, ip:'', facts:{ Connection:'PON fibre from the nearby pole', Downlink:'Ethernet to ER605 WAN', 'Admin address':'Not recorded yet' }, services:[] },
+  ubu:{ name:'proxmox-ubuntu-10', role:'VM 100 on the Proxmox host, runs every Docker stack. Virtual, so not a physical box', kind:'virt', floor:'top', x:240, y:215, ip:'192.168.100.10', facts:{ Swarm:'docker-swarm-1', Hostname:'docker-vm.local.internal' }, probe:'http://local.internal', services:[['Nginx Proxy Manager','http://npm.local.internal','proxy'],['Grafana (containers)','http://grafana.local.internal','monitoring'],['Graylog','http://graylog.local.internal','monitoring'],['Portainer','https://portainer.local.internal','monitoring'],['File Browser (stacks)','http://files-vm.local.internal','monitoring'],['n8n','http://n8n.local.internal','n8n'],['OmniRoute','http://omniroute.local.internal','ai'],['Hermes','http://hermes.local.internal','ai'],['Jellyfin','http://jellyfin.local.internal','media'],['Docker Registry UI','http://registry.local.internal','registry'],['Immich','http://immich.local.internal','immich'],['Nextcloud','http://nextcloud.local.internal','immich'],['job-seeker','http://jobseeker.local.internal','job_seeker'],['AI Team','http://ai-team.local.internal','ai_team']] },  air:{ name:'Airtel-Ashutosh', ssid:'Ashutosh', role:'Airtel PON router, redundant ER605 WAN', kind:'router', floor:'top', x:345, y:215, ip:'192.168.1.1', facts:{ Network:'192.168.1.0/24', 'Wi-Fi':'Ashutosh', Hostname:'main-router.local.internal', Connection:'PON fibre from the nearby pole', Downlink:'Ethernet to ER605 WAN (192.168.1.4)' }, probe:'http://192.168.1.1', services:[['Router admin','http://192.168.1.1']] },
+  xcl:{ name:'Excitel', ssid:'Excitel', role:'PON router, redundant ER605 WAN', kind:'router', floor:'top', x:440, y:215, ip:'', facts:{ 'Wi-Fi':'Excitel (name assumed)', Connection:'PON fibre from the nearby pole', Downlink:'Ethernet to ER605 WAN', 'Admin address':'Not recorded yet' }, services:[] },
 
-  ap:{ name:'AC1750 Wi-Fi AP', role:'Archer A7 in access point mode', kind:'router', floor:'second', x:265, y:180, ip:'192.168.100.7', facts:{ Location: 'Upper System room, second floor', 'Wi-Fi':'Ashutosh-Secured', Hostname:'wifi-ap.local.internal' }, probe:'http://192.168.100.7', services:[['AP admin','http://192.168.100.7']] },
+  ap:{ name:'AC1750 Wi-Fi AP', ssid:'Ashutosh-Secured', role:'Archer A7 in access point mode', kind:'router', floor:'second', x:265, y:180, ip:'192.168.100.7', facts:{ Location: 'Upper System room, second floor', 'Wi-Fi':'Ashutosh-Secured', Hostname:'wifi-ap.local.internal' }, probe:'http://192.168.100.7', services:[['AP admin','http://192.168.100.7']] },
   cb:{ name:'creator-base', role:'Admin PC, one machine with two network cards', kind:'pc', floor:'second', x:175, y:176, ip:'.8 wired / .6 Wi-Fi', facts:{ 'Wired (enp5s0)':'192.168.100.8', 'Wi-Fi (wlo1)':'192.168.100.6' }, services:[['AI Team (dev)','http://ai-team-dev.local.internal']] },  ab:{ name:'anshuman-base', role:'PC in the System room beside the AP', kind:'pc', floor:'second', x:185, y:245, ip:'', facts:{ Connection:'Ethernet from the back of the AC1750', Address:'Not recorded yet' }, services:[] },
   tv:{ name:'32-inch TV', role:'Wall-mounted TV in Room 2, wired to Syrotech', kind:'tv', floor:'ground', x:207, y:288, ip:'', facts:{ Location:'Room 2, ground floor', Connection:'Ethernet from the back of Syrotech', Address:'Not recorded yet' }, services:[] },
+  e1:{ name:'Extender (first floor)', ssid:'Ashutosh', wireless:true, role:'Wireless extender of the Ashutosh network', kind:'router', floor:'first', x:392, y:134, elev:2.15, flip:true, ip:'', facts:{ Location:'On the wardrobe, beside Excitel-Syrotech', 'Wi-Fi':'Ashutosh', Uplink:'Wireless from Airtel-Ashutosh', Address:'Not recorded yet' }, services:[] },
+  e2:{ name:'Extender (ground floor)', ssid:'Ashutosh', wireless:true, role:'Wireless extender of the Ashutosh network', kind:'router', floor:'ground', x:150, y:225, ip:'', facts:{ Location:'Room 2, beside Syrotech', 'Wi-Fi':'Ashutosh', Uplink:'Wireless from Airtel-Ashutosh', Address:'Not recorded yet' }, services:[] },
 
-  exc:{ name:'Excitel-Syrotech', role:'Router', kind:'router', floor:'first', x:350, y:134, flip:true, elev:2.15, ip:'', facts:{ Location:'On the wardrobe, hall side of the bathroom wall', Uplink: 'Ethernet to the AC1750', 'Admin address':'Not recorded yet' }, services:[] },
-  syr:{ name:'Syrotech', role:'Router', kind:'router', floor:'ground', x:130, y:225, ip:'', facts:{ Location: 'Room 2 (bedroom), ground floor', Uplink:'Ethernet to the AC1750', 'Admin address':'Not recorded yet' }, services:[] },
+  exc:{ name:'Excitel-Syrotech', ssid:'Ashutosh-Secured', role:'Router', kind:'router', floor:'first', x:350, y:134, flip:true, elev:2.15, ip:'', facts:{ 'Wi-Fi':'Ashutosh-Secured', Location:'On the wardrobe, hall side of the bathroom wall', Uplink: 'Ethernet to the AC1750', 'Admin address':'Not recorded yet' }, services:[] },
+  syr:{ name:'Syrotech', ssid:'Ashutosh-Secured', role:'Router', kind:'router', floor:'ground', x:120, y:225, ip:'', facts:{ 'Wi-Fi':'Ashutosh-Secured', Location: 'Room 2 (bedroom), ground floor', Uplink:'Ethernet to the AC1750', 'Admin address':'Not recorded yet' }, services:[] },
 };
 /* Riser slots in plan x: 77 ER605-AP, 82 NFS, 87 AP-first floor, 92 AP-ground floor */
 /* Traced from the hand-drawn floor plans. Plan units: footprint x 20-620, y 20-300. [x1,y1,x2,y2,door centre] */
@@ -110,9 +114,11 @@ const LINKS = [
   { a:'ap', b:'cb', type:'lan', label:'From the back of the AP (192.168.100.8)', segs:{ second:'M258 158V156H225V176H197' } },
   { a:'ap', b:'ab', type:'lan', label:'From the back of the AP', segs:{ second:'M262 158V156H290V245H207' } },
   { a:'ap', b:'cb', type:'wifi', label:'Wi-Fi (192.168.100.6)', segs:{} },
+  { a:'air', b:'e1', type:'wifi', label:'Wireless extender link (Ashutosh)', segs:{} },
+  { a:'air', b:'e2', type:'wifi', label:'Wireless extender link (Ashutosh)', segs:{} },
   { a:'ap', b:'exc', type:'eth', label:'Back of the AP to front of this router', riser:[87,'second','first'], segs:{ second:'M265 158V125H87V28', first:'M87 28V120H350' } },
-  { a:'ap', b:'syr', type:'eth', label:'Back of the AP to front of this router', riser:[92,'second','ground'], segs:{ second:'M270 158V130H92V28', ground:'M92 28V270H130V247' } },
-  { a:'syr', b:'tv', type:'lan', label:'Ethernet from the back of Syrotech', segs:{ ground:'M130 203V182H100V288H185' } },
+  { a:'ap', b:'syr', type:'eth', label:'Back of the AP to front of this router', riser:[92,'second','ground'], segs:{ second:'M270 158V130H92V28', ground:'M92 28V270H120V247' } },
+  { a:'syr', b:'tv', type:'lan', label:'Ethernet from the back of Syrotech', segs:{ ground:'M120 203V182H100V288H185' } },
 ];
 const HX = 6.5, HZ = 3, px = v => (v - 320) / 600 * 2 * HX, pz = v => (v - 160) / 280 * 2 * HZ;
 const COL = { eth:0x2f6fd6, lan:0x2fbf7f, pon:0xff8a3d, nfs:0x4fd1c5, wifi:0xf2c063, virt:0xc39bff };
@@ -355,19 +361,19 @@ function deviceModel(d) {
     // front is the input, back is the output
     const port = (z, col) => { const m = new THREE.Mesh(new THREE.BoxGeometry(.07, .045, .03), new THREE.MeshBasicMaterial({ color:col })); m.position.set(0, h + .035, z); g.add(m); };
     port(.18, 0x22c55e); port(-.18, 0xff8a3d);
-    if (!d.elev) [[1, 'IN', '#22c55e'], [-1, 'OUT', '#ff8a3d']].forEach(([sd, t, col]) => {
+    if (!d.elev && !d.wireless) [[1, 'IN', '#22c55e'], [-1, 'OUT', '#ff8a3d']].forEach(([sd, t, col]) => {
       const c = document.createElement('canvas'); c.width = 128; c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#101826'; x.fillRect(0, 0, 128, 64); x.fillStyle = col; x.font = 'bold 44px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(t, 64, 34);
       const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
       const lab = new THREE.Mesh(new THREE.PlaneGeometry(.24, .12), new THREE.MeshBasicMaterial({ map:tex, toneMapped:false })); lab.position.set(.17 * sd, h * .55, sd * .285); if (sd < 0) lab.rotation.y = Math.PI; g.add(lab);
       // router-to-router cable drops from the ceiling; device and fibre cables come up from the floor
       const id = Object.keys(DEVICES).find(k => DEVICES[k] === d), ls = LINKS.filter(l => sd > 0 ? l.b === id : l.a === id), C = FH - .12;
       const cm = t => std({ color:COL[t], emissive:COL[t], emissiveIntensity:.35 });
-      if (ls.some(l => l.type === 'eth')) { const m = cm('eth');
+      if (d.floor !== 'top' && ls.some(l => l.type === 'eth')) { const m = cm('eth');
         box(g, .01, h + .02, sd * .3 - .02, .05, C, sd * .3 + .02, m);
         box(g, .01, h + .02, Math.min(sd * .18, sd * .3), .05, h + .05, Math.max(sd * .18, sd * .3), m);
         box(g, -.3, C - .02, sd * .47 - .02, .3, C + .02, sd * .47 + .02, m);
         box(g, .01, C - .02, Math.min(sd * .3, sd * .47), .05, C + .02, Math.max(sd * .3, sd * .47), m); }
-      const low = ls.find(l => l.type === 'lan' || l.type === 'pon');
+      const low = ls.find(l => l.type === 'pon') || ls.find(l => d.floor === 'top' && l.type === 'eth') || ls.find(l => l.type === 'lan');
       if (low) { const m = cm(low.type);
         box(g, -.05, .03, sd * .3 - .02, -.01, h + .05, sd * .3 + .02, m);
         box(g, -.05, h + .02, Math.min(sd * .18, sd * .3), -.01, h + .05, Math.max(sd * .18, sd * .3), m);
@@ -389,7 +395,7 @@ Object.entries(DEVICES).forEach(([id, d]) => {
   const hit = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.8, 1.1), new THREE.MeshBasicMaterial({ visible:false })); hit.position.y = .9; hit.userData.id = id; g.add(hit); hits.push(hit);
   const r = ring(CSS[d.kind]); g.add(r);
   const lab = document.createElement('button'); lab.className = 'lab'; lab.type = 'button'; lab.style.setProperty('--c', CSS[d.kind]);
-  lab.innerHTML = `${d.name}${d.ip ? `<small>${d.ip}</small>` : ''}`;
+  lab.innerHTML = `${d.name}${d.ip ? `<small>${d.ip}</small>` : ''}${d.ssid ? `<span class="ssid"><svg viewBox="0 0 24 20" width="15" height="12" aria-hidden="true"><path d="M2 8a14 14 0 0 1 20 0M6 12a8.500 8.500 0 0 1 12 0M9.500 15.500a3.500 3.500 0 0 1 5 0" fill="none" stroke="currentColor" stroke-width="2.400" stroke-linecap="round"/><circle cx="12" cy="18" r="1.700" fill="currentColor"/></svg>${d.ssid}${CHANNEL[d.ssid] ? ` · Ch ${CHANNEL[d.ssid]}` : ''}</span>` : ''}`;
   lab.addEventListener('click', () => select(id)); labelsEl.appendChild(lab);
   devObjs[id] = { g, r, lab, d };
 });
@@ -402,7 +408,7 @@ LINKS.forEach((l, i) => {
   const mat = new THREE.MeshStandardMaterial({ color:COL[l.type], emissive:COL[l.type], emissiveIntensity:.35, roughness:.5, transparent:true });
   linkMeshes[i] = { mat, l };
   Object.entries(l.segs).forEach(([floor, seg]) => {
-    const curve = poly(parse(seg, l.type === 'eth' ? FH - .12 : .05));
+    const curve = poly(parse(seg, l.type === 'eth' && floor !== 'top' ? FH - .12 : .05));
     const m = new THREE.Mesh(new THREE.TubeGeometry(curve, 80, l.type === 'virt' ? .025 : .042, 6), mat); floorGroups[floor].add(m);
     const pm = new THREE.Mesh(new THREE.SphereGeometry(.06, 8, 6), new THREE.MeshBasicMaterial({ color:COL[l.type], transparent:true })); floorGroups[floor].add(pm);
     pulses.push({ pm, curve, t:Math.random(), s:.18 + Math.random() * .1, link:i });
@@ -421,11 +427,17 @@ LINKS.forEach((l, i) => {
   const mat = new THREE.MeshBasicMaterial({ color:COL.wifi, transparent:true }); linkMeshes[i] = { mat, l:LINKS[i] };
   for (let k = 1; k < 15; k++) { const s = new THREE.Mesh(new THREE.SphereGeometry(.03, 6, 5), mat); s.position.copy(curve.getPoint(k / 15)); floorGroups.second.add(s); }
 }
+/* Wireless extender links cross floors, so their dots follow the floors as they lift */
+const airDots = LINKS.map((l, i) => [l, i]).filter(([l]) => l.type === 'wifi' && l.a === 'air').map(([l, i]) => {
+  const mat = new THREE.MeshBasicMaterial({ color:COL.wifi, transparent:true }); linkMeshes[i] = { mat, l };
+  return { l, dots:Array.from({ length:26 }, () => { const m = new THREE.Mesh(new THREE.SphereGeometry(.04, 6, 5), mat); scene.add(m); return m; }) };
+});
+const dotA = new THREE.Vector3(), dotB = new THREE.Vector3();
 /* Fibre drop from the street pole into the top floor */
 const fibreMat = std({ color:COL.pon }), drops = [320, 410].map(x => { const m = new THREE.Mesh(new THREE.CylinderGeometry(.025, .025, 1, 6), fibreMat); scene.add(m); return { m, x }; });
 /* Wi-Fi coverage: expanding rings. Illustrative, not a signal measurement */
 const waves = [];
-[['air'], ['ap']].forEach(([id]) => { for (let k = 0; k < 3; k++) { const m = new THREE.Mesh(new THREE.RingGeometry(.97, 1, 64), new THREE.MeshBasicMaterial({ color:COL.wifi, transparent:true, side:THREE.DoubleSide, depthWrite:false })); m.rotation.x = -Math.PI / 2; m.position.y = .9; devObjs[id].g.add(m); waves.push({ m, t:k / 3 }); } });
+[['air'], ['ap'], ['xcl'], ['exc'], ['syr'], ['e1'], ['e2']].forEach(([id]) => { for (let k = 0; k < 3; k++) { const m = new THREE.Mesh(new THREE.RingGeometry(.97, 1, 64), new THREE.MeshBasicMaterial({ color:COL.wifi, transparent:true, side:THREE.DoubleSide, depthWrite:false })); m.rotation.x = -Math.PI / 2; m.position.y = .9; devObjs[id].g.add(m); waves.push({ m, t:k / 3 }); } });
 
 /* ---------- State ---------- */
 let mode = 'outside', floorSel = 'all', selected = null, spread = 0, tween = null;
@@ -478,7 +490,7 @@ function render() {
     const up = [...svc].filter(u => status[u]).length;
     const list = [...FLOORS].reverse().map(f => `<h4>${f.name}</h4><ul>${Object.entries(DEVICES).filter(([, d]) => d.floor === f.id).map(([k, d]) => `<li><button class="linkbtn" data-go="${k}">${esc(d.name)}</button>${d.ip ? ` <span class="sub">· ${esc(d.ip)}</span>` : ''}</li>`).join('')}</ul>`).join('');
     box.innerHTML = `<h3>The house at a glance</h3><p class="sub" style="margin:6px 0">PON fibres from the nearby pole feed the Airtel-Ashutosh and Excitel routers, which connect to the ER605 as redundant lines. It feeds the AP on the second floor, which feeds the routers below.</p>
-      <dl class="kv"><dt>Web services answering</dt><dd>${location.protocol === 'https:' ? 'Only checked on a local copy' : checked ? up + ' of ' + svc.size : 'Checking…'}</dd><dt>Wi-Fi networks</dt><dd>Ashutosh, Ashutosh-Secured</dd><dt>Cable colours</dt><dd><span style="color:#ff8a3d">Orange</span> PON fibre, <span style="color:#6ea8fe">blue</span> router to router (in ceiling and walls), <span style="color:#3ecf8e">green</span> router to device, <span style="color:#f2c063">amber</span> Wi-Fi, <span style="color:#c39bff">purple</span> virtual</dd><dt>Routers</dt><dd>Front is input, back is output</dd></dl>${list}
+      <dl class="kv"><dt>Web services answering</dt><dd>${location.protocol === 'https:' ? 'Only checked on a local copy' : checked ? up + ' of ' + svc.size : 'Checking…'}</dd><dt>Wi-Fi networks</dt><dd>${[...new Set(Object.values(DEVICES).filter(d => d.ssid).map(d => esc(d.ssid)))].join(', ')}</dd><dt>Cable colours</dt><dd><span style="color:#ff8a3d">Orange</span> PON fibre, <span style="color:#6ea8fe">blue</span> router to router (in ceiling and walls, on the floor on the top floor only), <span style="color:#3ecf8e">green</span> router to device, <span style="color:#f2c063">amber</span> Wi-Fi, <span style="color:#c39bff">purple</span> virtual</dd><dt>Routers</dt><dd>Front is input, back is output</dd></dl>${list}
       <p class="note">Select "See inside" to lift the floors apart, or pick a device to go to it. Drag to orbit, scroll to zoom.</p>
       <p class="note" style="margin-bottom:0">Devices and addresses come from local.internal (snapshot 5 Nov 2026), without logins. Rooms follow the hand-drawn plans. Size, exterior, exact device spots and cable routes are estimates. A grey dot means no reply to this browser, which doesn't prove a service is down.</p>`;
     return;
@@ -486,7 +498,7 @@ function render() {
   const d = DEVICES[selected], floor = FLOORS.find(f => f.id === d.floor).name;
   const conns = LINKS.filter(l => l.a === selected || l.b === selected).map(l => { const o = l.a === selected ? l.b : l.a; return `<li>${o === 'inet' ? 'Internet' : `<button class="linkbtn" data-go="${o}">${esc(DEVICES[o].name)}</button>`} <span class="sub">· ${esc(l.label)}</span></li>`; }).join('');
   const svcs = d.services.map(([n, u, note]) => { const t = note ? ` <span class="sub">· ${esc(note)}</span>` : ''; return u ? `<li>${/^https?:/.test(u) ? `<span class="dot${status[u] ? ' up' : ''}"></span>` : ''}<a href="${esc(u)}" target="_blank" rel="noopener">${esc(n)}</a>${t}</li>` : `<li>${esc(n)}${t}</li>`; }).join('');
-  const facts = { ...(d.ip && !['pc', 'store'].includes(d.kind) ? { Address:d.ip } : {}), ...d.facts };
+  const facts = { ...(d.ip && !['pc', 'store'].includes(d.kind) ? { Address:d.ip } : {}), ...d.facts, ...(CHANNEL[d.ssid] ? { 'Wi-Fi channel':CHANNEL[d.ssid] } : {}) };
   box.innerHTML = `<h3>${esc(d.name)}</h3><div class="sub">${esc(d.role)} · ${floor}</div><h4>Details</h4><dl class="kv">${Object.entries(facts).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
     <h4>Connected to</h4><ul>${conns}</ul>${svcs ? `<h4>Services</h4><ul>${svcs}</ul>` : ''}<p style="margin:12px 0 0"><button class="linkbtn" data-go="">← Whole house</button></p>`;
 }
@@ -524,9 +536,14 @@ function frame() {
   Object.entries(sideGroups).forEach(([s, gs]) => { const [nx, nz] = NORMALS[s], hide = !seeThrough && spread > .02 && nx * camDir.x + nz * camDir.z > .2; gs.forEach(g => { g.visible = !hide; }); });
   roomLabels.forEach(m => { m.visible = seeThrough || spread > .6; });
   partitions.forEach(g => { g.scale.y = seeThrough ? 1 : 1 - spread * .62; });
-  stretched.forEach(s => { const lo = new THREE.Vector3(s.x, floorY(s.b) + FH - .12, s.z), hi = new THREE.Vector3(s.x, floorY(s.a) + FH - .12, s.z); stretch(s.m, lo, hi); s.m.visible = floorSel === 'all' ; });
+  stretched.forEach(s => { const lo = new THREE.Vector3(s.x, floorY(s.b) + FH - .12, s.z), hi = new THREE.Vector3(s.x, floorY(s.a) + (s.a === 'top' ? .05 : FH - .12), s.z); stretch(s.m, lo, hi); s.m.visible = floorSel === 'all' ; });
   drops.forEach(d => { stretch(d.m, new THREE.Vector3(-8.6, 9.4, 4.2), new THREE.Vector3(px(d.x), floorY('top') + 1.05, HZ)); d.m.visible = floorSel === 'all' || floorSel === 'top'; });
   const time = clock.elapsedTime;
+  airDots.forEach(({ l, dots }) => {
+    devObjs[l.a].g.getWorldPosition(dotA); devObjs[l.b].g.getWorldPosition(dotB); dotA.y += 1; dotB.y += 1;
+    const show = floorSel === 'all' && !(spread < .02 && !seeThrough);
+    dots.forEach((m, i) => { m.visible = show; m.position.lerpVectors(dotA, dotB, (i + 1 + (time * .8 % 1)) / (dots.length + 1)); });
+  });
   pulses.forEach(p => { p.t = (p.t + dt * p.s) % 1; p.pm.position.copy(p.curve.getPointAt(p.t)); p.pm.position.y += .03; });
   leds.forEach((m, i) => { m.visible = Math.sin(time * 5 + i * 1.7) > -.65; });
   waves.forEach(w => { w.t = (w.t + dt * .18) % 1; const s = .5 + w.t * 6; w.m.scale.set(s, s, 1); w.m.material.opacity = inside ? (1 - w.t) * .55 : 0; w.m.visible = inside; });
