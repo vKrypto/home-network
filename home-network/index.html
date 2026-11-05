@@ -85,6 +85,8 @@ const DEVICES = {
   ubu:{ name:'proxmox-ubuntu-10', role:'VM 100 on the Proxmox host, runs every Docker stack. Virtual, so not a physical box', kind:'virt', floor:'top', x:240, y:215, ip:'192.168.100.10', facts:{ Swarm:'docker-swarm-1', Hostname:'docker-vm.local.internal' }, probe:'http://local.internal', services:[['Nginx Proxy Manager','http://npm.local.internal','proxy'],['Grafana (containers)','http://grafana.local.internal','monitoring'],['Graylog','http://graylog.local.internal','monitoring'],['Portainer','https://portainer.local.internal','monitoring'],['File Browser (stacks)','http://files-vm.local.internal','monitoring'],['n8n','http://n8n.local.internal','n8n'],['OmniRoute','http://omniroute.local.internal','ai'],['Hermes','http://hermes.local.internal','ai'],['Jellyfin','http://jellyfin.local.internal','media'],['Docker Registry UI','http://registry.local.internal','registry'],['Immich','http://immich.local.internal','immich'],['Nextcloud','http://nextcloud.local.internal','immich'],['job-seeker','http://jobseeker.local.internal','job_seeker'],['AI Team','http://ai-team.local.internal','ai_team']] },  air:{ name:'Airtel-Ashutosh', ssid:'Ashutosh', role:'Airtel PON router, redundant ER605 WAN', kind:'router', floor:'top', x:345, y:215, ip:'192.168.1.1', facts:{ Network:'192.168.1.0/24', 'Wi-Fi':'Ashutosh', Hostname:'main-router.local.internal', Connection:'PON fibre from the nearby pole', Downlink:'Ethernet to ER605 WAN (192.168.1.4)' }, probe:'http://192.168.1.1', services:[['Router admin','http://192.168.1.1']] },
   xcl:{ name:'Excitel', ssid:'Excitel', role:'PON router, redundant ER605 WAN', kind:'router', floor:'top', x:440, y:215, ip:'', facts:{ 'Wi-Fi':'Excitel (name assumed)', Connection:'PON fibre from the nearby pole', Downlink:'Ethernet to ER605 WAN', 'Admin address':'Not recorded yet' }, services:[] },
 
+  pm1:{ name:'Power monitor 1', role:'Small electricity monitor for power grid and inverter 1, inside the top-floor room, not in the rack', kind:'meter', floor:'top', x:72, y:55, ip:'', facts:{ Monitors:'Power grid and inverter', Connection:'Ethernet from the back of Airtel-Ashutosh', Address:'Not recorded yet' }, services:[] },
+  pm2:{ name:'Power monitor 2', role:'Small electricity monitor for power grid and inverter 2, inside the top-floor room, not in the rack', kind:'meter', floor:'top', x:72, y:88, ip:'', facts:{ Monitors:'Power grid and inverter', Connection:'Ethernet from the back of Airtel-Ashutosh', Address:'Not recorded yet' }, services:[] },
   ap:{ name:'AC1750 Wi-Fi AP', ssid:'Ashutosh-Secured', role:'Archer A7 in access point mode', kind:'router', floor:'second', x:215, y:170, ip:'192.168.100.7', facts:{ Location: 'Office-room-1, second floor', 'Wi-Fi':'Ashutosh-Secured', Hostname:'wifi-ap.local.internal' }, probe:'http://192.168.100.7', services:[['AP admin','http://192.168.100.7']] },
   cb:{ name:'creator-base', role:'Admin PC, one machine with two network cards', kind:'pc', floor:'second', x:120, y:168, ip:'.8 wired / .6 Wi-Fi', facts:{ 'Wired (enp5s0)':'192.168.100.8', 'Wi-Fi (wlo1)':'192.168.100.6' }, services:[['AI Team (dev)','http://ai-team-dev.local.internal']] },  ab:{ name:'anshuman-base', role:'PC in Office-room-2, beside the AP room', kind:'pc', floor:'second', x:120, y:250, ip:'', facts:{ Connection:'Ethernet from the back of the AC1750', Address:'Not recorded yet' }, services:[] },
   tv:{ name:'32-inch TV', role:'Wall-mounted TV in Room 2, wired to Syrotech', kind:'tv', floor:'ground', x:207, y:288, ip:'', facts:{ Location:'Room 2, ground floor', Connection:'Ethernet from the back of Syrotech', Address:'Not recorded yet' }, services:[] },
@@ -97,8 +99,8 @@ const DEVICES = {
 /* Riser slots in plan x: 77 ER605-AP, 82 NFS, 87 AP-first floor, 92 AP-ground floor */
 /* Traced from the hand-drawn floor plans. Plan units: footprint x 20-620, y 20-300. [x1,y1,x2,y2,door centre] */
 const LAYOUT = {
-  top: { rooms:[['Room',57,70],['Barandah',160,285],['Open roof',460,130]], stairs:[], opening:[110,20,302,84], ladder:112,
-    walls:[[302,20,302,166],[20,166,302,166,255]] },
+  top: { balcony:56, rooms:[['Balcony',38,240],['Room',60,30],['Barandah',160,285],['Open roof',460,130]], stairs:[], opening:[110,20,302,84], ladder:112,
+    walls:[[56,20,56,166],[302,20,302,166],[56,166,302,166,103]] },
   second: { fence:[[136,86,276,86]], rooms:[['Balcony',42,260],['Hall',470,160],['Office-room-1',200,210],['Office-room-2',200,292],['Washroom',298,270]], stairs:[[110,20,302,84]], balcony:56, desks:[[116,157,230,188],[119,222,251,258]],
     walls:[[56,20,56,300,105],[56,136.667,251,136.667],[56,218.333,251,218.333],[251,136.667,251,218.333,177],[251,218.333,251,256,236],[251,256,251,300],[251,256,345,256,300],[345,256,345,300]] },
   first: { fence:[[136,86,276,86]], wardrobe:[254,122,446,146], rooms:[['Balcony',45,260],['Hall',190,135],['Kitchen',560,50],['Room 1',158,270],['Bath 1',305,270],['Bath 2',401,270],['Room 2',560,270]], stairs:[[110,20,302,84]], balcony:62,
@@ -110,6 +112,8 @@ const LINKS = [
   { a:'inet', b:'air', type:'pon', label:'PON fibre into the front (input)', segs:{ top:'M320 300V250H345V237' } },
   { a:'inet', b:'xcl', type:'pon', label:'PON fibre into the front (input)', segs:{ top:'M410 300V250H440V237' } },
   { a:'air', b:'er', type:'eth', label:'Back of Airtel-Ashutosh to front of ER605 (192.168.1.4), redundant line', segs:{ top:'M345 193V170H138V137' } },
+  { a:'air', b:'pm1', type:'lan', label:'Ethernet from the back of Airtel-Ashutosh', segs:{ top:'M350 193V173H104V80H72V77' } },
+  { a:'air', b:'pm2', type:'lan', label:'Ethernet from the back of Airtel-Ashutosh', segs:{ top:'M355 193V176H106V112H72V110' } },
   { a:'xcl', b:'er', type:'eth', label:'Back of Excitel to front of ER605, redundant line', segs:{ top:'M440 193V168H134V137' } },
   { a:'er', b:'rec', type:'lan', label:'From the back of the ER605', segs:{ top:'M134 93V89H200V93' } },
   { a:'er', b:'ne', type:'lan', label:'From the back of the ER605', segs:{ top:'M138 93V87H270V93' } },
@@ -129,7 +133,7 @@ const LINKS = [
 /* Building is 40 ft deep (x, away from the road) and 24 ft wide along the road (z) */
 const HX = 40 * .3048 / 2, HZ = 24 * .3048 / 2, STUB = 22 / 280 * 2 * HZ, px = v => (v - 320) / 600 * 2 * HX, pz = v => (v - 160) / 280 * 2 * HZ;
 const COL = { eth:0x2f6fd6, lan:0x2fbf7f, pon:0xff8a3d, nfs:0x4fd1c5, wifi:0xf2c063, virt:0xc39bff };
-const CSS = { router:'#6ea8fe', pi:'#7ee0a4', server:'#7ee0a4', virt:'#c39bff', store:'#4fd1c5', pc:'#7ee0a4', tv:'#7ee0a4' };
+const CSS = { router:'#6ea8fe', pi:'#7ee0a4', server:'#7ee0a4', virt:'#c39bff', store:'#4fd1c5', pc:'#7ee0a4', tv:'#7ee0a4', meter:'#7ee0a4' };
 
 /* ---------- Scene ---------- */
 const GH = 11 * .3048, UH = 10 * .3048, GAP = 4.2; // ground and upper storey heights, spacing when floors lift apart
@@ -358,9 +362,9 @@ FLOORS.forEach((f, i) => {
       [1, 2.4].forEach(y => box(g, px(302), y, Z - .02, X, y + .03, Z + .02, M.rail)); }
     // enclosed stair room, then a parapet around the barandah and open roof
     const backW = new THREE.Group(); g.add(backW); sideGroups.back.push(backW); box(backW, -HX, 0, -HZ, px(302), FH, -HZ + .2, M.wall);
-    const leftW = new THREE.Group(); g.add(leftW); sideGroups.left.push(leftW); box(leftW, -HX, 0, -HZ, -HX + .2, FH, pz(166), M.wall);
+    const leftW = new THREE.Group(); g.add(leftW); sideGroups.left.push(leftW); rail(leftW, -HX + .02, -HZ, HZ);
     const para = (side, a, b, c, d) => { const q = new THREE.Group(); g.add(q); sideGroups[side].push(q); box(q, a, 0, b, c, 1, d, M.wall); box(q, a - .03, 1, b - .03, c + .03, 1.07, d + .03, M.accent); };
-    para('front', -HX, HZ - .2, HX, HZ); para('right', HX - .2, -HZ, HX, HZ); para('back', px(302), -HZ, HX, -HZ + .2); para('left', -HX, pz(166), -HX + .2, HZ);
+    para('front', -HX, HZ - .2, HX, HZ); para('right', HX - .2, -HZ, HX, HZ); para('back', px(302), -HZ, HX, -HZ + .2);
     box(g, px(302) - .08, 0, HZ - .28, px(302), FH, HZ - .2, M.metal);
   } else {
     const front = [...WIN];
@@ -469,6 +473,7 @@ function deviceModel(d) {
   if (d.kind === 'server') { box(g, -.3, 0, -.4, .3, 1.5, .4, M.dark); for (let y = .25; y < 1.4; y += .28) { box(g, -.27, y, .39, .27, y + .2, .41, M.metal); led(.2, y + .1, .42); } }
   if (d.kind === 'store') { const h = stand(.45); const m = shadow(new THREE.Mesh(new THREE.BoxGeometry(.2, .3, .3), M.dark)); m.position.y = h + .15; g.add(m); led(.05, h + .05, .16); }
   if (d.kind === 'virt') { const m = new THREE.Mesh(new THREE.BoxGeometry(.7, .7, .7), new THREE.MeshStandardMaterial({ color:c, transparent:true, opacity:.28, emissive:c, emissiveIntensity:.5 })); m.position.y = 1; m.userData.spin = true; g.add(m); const e = new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({ color:c })); m.add(e); }
+  if (d.kind === 'meter') { box(g, -.04, 0, -.04, .04, 1, .04, M.metal); box(g, -.13, 1, -.06, .13, 1.3, .06, std({ color:0xd8dadd })); const sc = new THREE.Mesh(new THREE.PlaneGeometry(.17, .09), new THREE.MeshBasicMaterial({ color:0x35c47d })); sc.position.set(0, 1.19, .062); g.add(sc); led(.09, 1.07, .065); const cm = std({ color:COL.lan, emissive:COL.lan, emissiveIntensity:.35 }); box(g, -.02, .03, .04, .02, 1, .08, cm); box(g, -.02, .03, .04, .02, .07, STUB, cm); }
   if (d.kind === 'tv') { box(g, -.37, .95, -.03, .37, 1.38, .03, M.dark); const sc = new THREE.Mesh(new THREE.PlaneGeometry(.7, .39), new THREE.MeshBasicMaterial({ color:0x4f8fd0 })); sc.position.set(0, 1.165, -.035); sc.rotation.y = Math.PI; g.add(sc); const cm = std({ color:COL.lan, emissive:COL.lan, emissiveIntensity:.35 }); box(g, -.49, .03, -.02, -.2, .07, .02, cm); box(g, -.22, .03, .03, -.18, .95, .07, cm); led(.3, .97, -.04); }
   if (d.kind === 'pc') { box(g, -.75, .72, -.38, .75, .77, .38, M.wood); [[-.7, -.33], [.67, -.33], [-.7, .3], [.67, .3]].forEach(([x, z]) => box(g, x, 0, z, x + .05, .72, z + .05, M.metal)); box(g, -.35, .95, -.2, .35, 1.36, -.17, M.dark); const s = new THREE.Mesh(new THREE.PlaneGeometry(.66, .37), new THREE.MeshBasicMaterial({ color:0x4f8fd0 })); s.position.set(0, 1.155, -.165); g.add(s); box(g, -.03, .77, -.2, .03, .95, -.17, M.metal); box(g, .5, 0, -.25, .7, .45, .2, M.dark); led(.6, .35, .21); }
   return g;
@@ -494,9 +499,9 @@ LINKS.forEach((l, i) => {
   linkMeshes[i] = { mat, l }; netMaterials.add(mat);
   Object.entries(l.segs).forEach(([floor, seg]) => {
     const curve = poly(parse(seg, l.type === 'eth' && floor !== 'top' ? heightOf(floor) - .12 : .05));
-    const m = new THREE.Mesh(new THREE.TubeGeometry(curve, 80, l.type === 'virt' ? .025 : .042, 6), mat); floorGroups[floor].add(m); if (floor === 'top' && !l.riser) topWires.push(m);
+    const m = new THREE.Mesh(new THREE.TubeGeometry(curve, 80, l.type === 'virt' ? .025 : .042, 6), mat); floorGroups[floor].add(m); if (floor === 'top') topWires.push(m);
     const pm = new THREE.Mesh(new THREE.SphereGeometry(.06, 8, 6), new THREE.MeshBasicMaterial({ color:COL[l.type], transparent:true })); floorGroups[floor].add(pm);
-    if (floor === 'top' && !l.riser) topWires.push(pm);
+    if (floor === 'top') topWires.push(pm);
     pulses.push({ pm, curve, t:Math.random(), s:.18 + Math.random() * .1, link:i });
   });
   if (l.riser) {
@@ -569,7 +574,7 @@ $('wallBtn').onclick = () => setWalls(!seeThrough);
 
 /* Rack view: top-floor equipment moves into the rack, shown beside the house */
 let rackView = false;
-const rackModel = new THREE.Group(); rackModel.position.set(px(60), 0, pz(125)); rackModel.visible = false; floorGroups.top.add(rackModel);
+const rackModel = new THREE.Group(); rackModel.position.set(px(85), 0, pz(125)); rackModel.visible = false; floorGroups.top.add(rackModel);
 { const w = .305, d = .47, H = 1.28;
   [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([a, b]) => box(rackModel, a * w - .05, 0, b * d - .025, a * w + .05, H, b * d + .025, M.metal));
   [.08, .23, .38, .53, .72, .87, 1.02, 1.17].forEach(y => box(rackModel, -w, y, -d, w, y + .012, d, M.conc));
@@ -578,15 +583,21 @@ const rackModel = new THREE.Group(); rackModel.position.set(px(60), 0, pz(125));
   g.fillStyle = 'rgba(255,255,255,.93)'; g.beginPath(); g.roundRect(2, 2, 396, 68, 14); g.fill(); g.fillStyle = '#26364f'; g.font = '700 40px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('SERVER RACK', 200, 38);
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
   const lab = new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, toneMapped:false })); lab.scale.set(1.9, .34, 1); lab.position.y = 1.6; rackModel.add(lab); }
+/* Rack view wiring: the top-floor lines end at the rack instead of at each device */
+const rackWires = [['eth', 'M77 28V95H82V107'], ['pon', 'M320 300V155H95V143'], ['pon', 'M410 300V160H85V143'], ['lan', 'M74 107V110'], ['lan', 'M78 107V77H72']].map(([t, seg]) => {
+  const m = new THREE.Mesh(new THREE.TubeGeometry(poly(parse(seg)), 60, .042, 6), std({ color:COL[t], emissive:COL[t], emissiveIntensity:.35 }));
+  m.visible = false; floorGroups.top.add(m); return m;
+});
 function setRack(on) {
   rackView = on;
   document.body.classList.toggle('rack', on);
   $('rackBtn').setAttribute('aria-pressed', on);
   rackModel.visible = on;
-  Object.values(devObjs).filter(o => o.d.floor === 'top').forEach(o => { o.g.visible = !on; });
+  Object.values(devObjs).filter(o => o.d.floor === 'top' && o.d.kind !== 'meter').forEach(o => { o.g.visible = !on; });
   if (on) { selected = null; select(null, true); $('panel').innerHTML = '<iframe src="../rack/index.html?loadout=topfloor" title="Server rack with the top-floor equipment"></iframe>'; setFloor('top'); }
   else render();
   topWires.forEach(m => { m.visible = !on; });
+  rackWires.forEach(m => { m.visible = on; });
   size();
 }
 $('rackBtn').onclick = () => { setRack(!rackView); if (!rackView) { floorSel = 'all'; sync(); view(); } };
@@ -596,7 +607,7 @@ const status = {}; let checked = false;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
 function inventory() {
   const K = Object.values(DEVICES), n = f => K.filter(f).length, L = t => LINKS.filter(l => l.type === t).length;
-  return [['Routers and gateway', n(d => d.kind === 'router')], ['Servers', n(d => d.kind === 'server' || d.kind === 'pi')], ['Storage', n(d => d.kind === 'store')], ['Virtual machines', n(d => d.kind === 'virt')], ['PCs and TV', n(d => d.kind === 'pc' || d.kind === 'tv')],
+  return [['Routers and gateway', n(d => d.kind === 'router')], ['Servers', n(d => d.kind === 'server' || d.kind === 'pi')], ['Storage', n(d => d.kind === 'store')], ['Virtual machines', n(d => d.kind === 'virt')], ['PCs and TV', n(d => d.kind === 'pc' || d.kind === 'tv')], ['Power monitors', n(d => d.kind === 'meter')],
     ['PON fibres', L('pon')], ['Router-to-router cables', L('eth')], ['Device cables', L('lan')], ['Wi-Fi links', L('wifi')], ['Virtual links', L('virt')], ['Street pole', 1], ['Server rack (Rack view)', 1]]
     .map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('');
 }
@@ -656,7 +667,7 @@ function frame() {
   roomLabels.forEach(m => { m.visible = seeThrough || spread > .6; });
   partitions.forEach(g => { g.scale.y = seeThrough ? 1 : 1 - spread * .62; });
   stretched.forEach(s => { const lo = new THREE.Vector3(s.x, floorY(s.b) + heightOf(s.b) - .12, s.z), hi = new THREE.Vector3(s.x, floorY(s.a) + (s.a === 'top' ? .05 : heightOf(s.a) - .12), s.z); stretch(s.m, lo, hi); s.m.visible = floorSel === 'all' ; });
-  drops.forEach(d => { stretch(d.m, new THREE.Vector3(-8.6, 9.4, 4.2), new THREE.Vector3(px(d.x), floorY('top') + 1.05, HZ)); d.m.visible = !rackView && (floorSel === 'all' || floorSel === 'top'); });
+  drops.forEach(d => { stretch(d.m, new THREE.Vector3(-8.6, 9.4, 4.2), new THREE.Vector3(px(d.x), floorY('top') + 1.05, HZ)); d.m.visible = floorSel === 'all' || floorSel === 'top'; });
   const time = clock.elapsedTime;
   airDots.forEach(({ l, dots }) => {
     devObjs[l.a].g.getWorldPosition(dotA); devObjs[l.b].g.getWorldPosition(dotB); dotA.y += 1; dotB.y += 1;
@@ -692,7 +703,7 @@ if (location.protocol !== 'https:') Promise.all([...urls].map(async u => { statu
 const NETWORK_LAYER = 1;
 const networkObjects = {
   devices: Object.values(devObjs).map(o => o.g),
-  wires: [...new Set(pulses.map(p => p.pm)), ...stretched.map(x => x.m)],
+  wires: [...new Set(pulses.map(p => p.pm)), ...stretched.map(x => x.m), ...rackWires],
   wireless: [...waves.map(w => w.m), ...airDots.flatMap(a => a.dots)],
   outside: [pole, poleArm, ...drops.map(d => d.m)],
   rack: [rackModel],
