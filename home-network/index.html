@@ -19,7 +19,10 @@
   .seg button { background:none; border:0; color:var(--muted); font:inherit; padding:8px 12px; min-height:36px; cursor:pointer; }
   .seg button[aria-pressed=true] { background:#2a4570; color:var(--ink); }
   .plain-link { font:inherit; cursor:pointer; min-height:36px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 12px; text-decoration:none; color:var(--ink); }
-  #wallBtn[aria-pressed=true] { background:#2a4570; }
+  #wallBtn[aria-pressed=true], #rackBtn[aria-pressed=true] { background:#2a4570; }
+  body.rack #panel { width:min(48vw, 680px); padding:0; overflow:hidden; }
+  body.rack #bar { right:min(calc(48vw + 28px), 708px); }
+  #panel iframe { display:block; width:100%; height:100%; border:0; }
   #panel { position:absolute; top:12px; right:12px; bottom:12px; width:328px; overflow:auto; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; }
   #panel h3 { margin:0; font-size:17px; }
   #panel h4 { margin:14px 0 4px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:600; }
@@ -39,7 +42,9 @@
     html,body { height:auto; }
     #stage { position:relative; height:62vh; min-height:380px; }
     #bar { right:16px; }
-    #panel { position:static; width:auto; margin:12px 16px 16px; }
+    #panel, body.rack #panel { position:static; width:auto; margin:12px 16px 16px; }
+    body.rack #panel { height:70vh; }
+    body.rack #bar { right:16px; }
     h1 { width:100%; }
     .lab small { display:none; }
   }
@@ -52,6 +57,7 @@
     <h1>Home Network</h1>
     <div class="seg" id="modeSeg" role="group" aria-label="View"></div>
     <div class="seg" id="floorSeg" role="group" aria-label="Floor"></div>
+    <button class="plain-link" id="rackBtn" type="button" aria-pressed="false">Rack view</button>
     <button class="plain-link" id="wallBtn" type="button" aria-pressed="false">Transparent walls</button>
   </div>
   <div id="labels"></div>
@@ -79,8 +85,8 @@ const DEVICES = {
   ubu:{ name:'proxmox-ubuntu-10', role:'VM 100 on the Proxmox host, runs every Docker stack. Virtual, so not a physical box', kind:'virt', floor:'top', x:240, y:215, ip:'192.168.100.10', facts:{ Swarm:'docker-swarm-1', Hostname:'docker-vm.local.internal' }, probe:'http://local.internal', services:[['Nginx Proxy Manager','http://npm.local.internal','proxy'],['Grafana (containers)','http://grafana.local.internal','monitoring'],['Graylog','http://graylog.local.internal','monitoring'],['Portainer','https://portainer.local.internal','monitoring'],['File Browser (stacks)','http://files-vm.local.internal','monitoring'],['n8n','http://n8n.local.internal','n8n'],['OmniRoute','http://omniroute.local.internal','ai'],['Hermes','http://hermes.local.internal','ai'],['Jellyfin','http://jellyfin.local.internal','media'],['Docker Registry UI','http://registry.local.internal','registry'],['Immich','http://immich.local.internal','immich'],['Nextcloud','http://nextcloud.local.internal','immich'],['job-seeker','http://jobseeker.local.internal','job_seeker'],['AI Team','http://ai-team.local.internal','ai_team']] },  air:{ name:'Airtel-Ashutosh', ssid:'Ashutosh', role:'Airtel PON router, redundant ER605 WAN', kind:'router', floor:'top', x:345, y:215, ip:'192.168.1.1', facts:{ Network:'192.168.1.0/24', 'Wi-Fi':'Ashutosh', Hostname:'main-router.local.internal', Connection:'PON fibre from the nearby pole', Downlink:'Ethernet to ER605 WAN (192.168.1.4)' }, probe:'http://192.168.1.1', services:[['Router admin','http://192.168.1.1']] },
   xcl:{ name:'Excitel', ssid:'Excitel', role:'PON router, redundant ER605 WAN', kind:'router', floor:'top', x:440, y:215, ip:'', facts:{ 'Wi-Fi':'Excitel (name assumed)', Connection:'PON fibre from the nearby pole', Downlink:'Ethernet to ER605 WAN', 'Admin address':'Not recorded yet' }, services:[] },
 
-  ap:{ name:'AC1750 Wi-Fi AP', ssid:'Ashutosh-Secured', role:'Archer A7 in access point mode', kind:'router', floor:'second', x:265, y:180, ip:'192.168.100.7', facts:{ Location: 'Upper System room, second floor', 'Wi-Fi':'Ashutosh-Secured', Hostname:'wifi-ap.local.internal' }, probe:'http://192.168.100.7', services:[['AP admin','http://192.168.100.7']] },
-  cb:{ name:'creator-base', role:'Admin PC, one machine with two network cards', kind:'pc', floor:'second', x:175, y:176, ip:'.8 wired / .6 Wi-Fi', facts:{ 'Wired (enp5s0)':'192.168.100.8', 'Wi-Fi (wlo1)':'192.168.100.6' }, services:[['AI Team (dev)','http://ai-team-dev.local.internal']] },  ab:{ name:'anshuman-base', role:'PC in the System room beside the AP', kind:'pc', floor:'second', x:185, y:245, ip:'', facts:{ Connection:'Ethernet from the back of the AC1750', Address:'Not recorded yet' }, services:[] },
+  ap:{ name:'AC1750 Wi-Fi AP', ssid:'Ashutosh-Secured', role:'Archer A7 in access point mode', kind:'router', floor:'second', x:215, y:170, ip:'192.168.100.7', facts:{ Location: 'Office-room-1, second floor', 'Wi-Fi':'Ashutosh-Secured', Hostname:'wifi-ap.local.internal' }, probe:'http://192.168.100.7', services:[['AP admin','http://192.168.100.7']] },
+  cb:{ name:'creator-base', role:'Admin PC, one machine with two network cards', kind:'pc', floor:'second', x:120, y:168, ip:'.8 wired / .6 Wi-Fi', facts:{ 'Wired (enp5s0)':'192.168.100.8', 'Wi-Fi (wlo1)':'192.168.100.6' }, services:[['AI Team (dev)','http://ai-team-dev.local.internal']] },  ab:{ name:'anshuman-base', role:'PC in Office-room-2, beside the AP room', kind:'pc', floor:'second', x:120, y:250, ip:'', facts:{ Connection:'Ethernet from the back of the AC1750', Address:'Not recorded yet' }, services:[] },
   tv:{ name:'32-inch TV', role:'Wall-mounted TV in Room 2, wired to Syrotech', kind:'tv', floor:'ground', x:207, y:288, ip:'', facts:{ Location:'Room 2, ground floor', Connection:'Ethernet from the back of Syrotech', Address:'Not recorded yet' }, services:[] },
   e1:{ name:'Extender (first floor)', ssid:'Ashutosh', wireless:true, role:'Wireless extender of the Ashutosh network', kind:'router', floor:'first', x:392, y:134, elev:2.15, flip:true, ip:'', facts:{ Location:'On the wardrobe, beside Excitel-Syrotech', 'Wi-Fi':'Ashutosh', Uplink:'Wireless from Airtel-Ashutosh', Address:'Not recorded yet' }, services:[] },
   e2:{ name:'Extender (ground floor)', ssid:'Ashutosh', wireless:true, role:'Wireless extender of the Ashutosh network', kind:'router', floor:'ground', x:150, y:225, ip:'', facts:{ Location:'Room 2, beside Syrotech', 'Wi-Fi':'Ashutosh', Uplink:'Wireless from Airtel-Ashutosh', Address:'Not recorded yet' }, services:[] },
@@ -93,8 +99,8 @@ const DEVICES = {
 const LAYOUT = {
   top: { rooms:[['Room',57,70],['Barandah',160,285],['Open roof',460,130]], stairs:[], opening:[110,20,302,84], ladder:112,
     walls:[[302,20,302,166],[20,166,302,166,255]] },
-  second: { fence:[[136,86,276,86]], rooms:[['Balcony',42,260],['Hall',470,160],['System room 1',100,168],['System room 2',98,288]], stairs:[[110,20,302,84]], balcony:56, desks:[[116,157,230,188],[119,222,251,258]],
-    walls:[[56,20,56,300,105],[56,154,302,154,280],[56,219,302,219,280],[302,154,302,300]] },
+  second: { fence:[[136,86,276,86]], rooms:[['Balcony',42,260],['Hall',470,160],['Office-room-1',200,210],['Office-room-2',200,292],['Washroom',298,270]], stairs:[[110,20,302,84]], balcony:56, desks:[[116,157,230,188],[119,222,251,258]],
+    walls:[[56,20,56,300,105],[56,136.667,251,136.667],[56,218.333,251,218.333],[251,136.667,251,218.333,177],[251,218.333,251,256,236],[251,256,251,300],[251,256,345,256,300],[345,256,345,300]] },
   first: { fence:[[136,86,276,86]], wardrobe:[254,122,446,146], rooms:[['Balcony',45,260],['Hall',190,135],['Kitchen',560,50],['Room 1',158,270],['Bath 1',305,270],['Bath 2',401,270],['Room 2',560,270]], stairs:[[110,20,302,84]], balcony:62,
     walls:[[62,20,62,300,100],[62,146,620,146,470],[254,146,254,300],[356,146,356,300],[446,146,446,300],[494,20,494,76]], wood:[[62,146,254,300],[446,146,620,300]] },
   ground: { rooms:[['Entrance',58,240],['Room 2',285,205],['Kitchen',383,60],['Store room',533,92],['Hall',401,165],['Bathroom',404,275],['Room 1',560,285]], stairs:[[110,20,320,84],[233,84,320,122]], landing:[296,20,320,122],
@@ -110,22 +116,25 @@ const LINKS = [
   { a:'er', b:'pve', type:'lan', label:'From the back of the ER605', segs:{ top:'M115 93V91H104V180H70V193' } },
   { a:'pve', b:'sdc', type:'lan', label:'Attached drive', segs:{ top:'M92 215H128' } },
   { a:'pve', b:'ubu', type:'virt', label:'Virtual machine on this host', segs:{ top:'M92 208H110V185H240V193' } },
-  { a:'er', b:'ap', type:'eth', label:'Back of the ER605 to front of the AP', riser:[77,'top','second'], segs:{ top:'M130 93V90H77V28', second:'M77 28V120H240V210H265V202' } },
-  { a:'ap', b:'cb', type:'lan', label:'From the back of the AP (192.168.100.8)', segs:{ second:'M258 158V156H225V176H197' } },
-  { a:'ap', b:'ab', type:'lan', label:'From the back of the AP', segs:{ second:'M262 158V156H290V245H207' } },
+  { a:'er', b:'ap', type:'eth', label:'Back of the ER605 to front of the AP', riser:[77,'top','second'], segs:{ top:'M130 93V90H77V28', second:'M77 28V120H190V200H215V192' } },
+  { a:'ap', b:'cb', type:'lan', label:'From the back of the AP (192.168.100.8)', segs:{ second:'M210 148V142H165V168H142' } },
+  { a:'ap', b:'ab', type:'lan', label:'From the back of the AP', segs:{ second:'M220 148V142H240V250H142' } },
   { a:'ap', b:'cb', type:'wifi', label:'Wi-Fi (192.168.100.6)', segs:{} },
   { a:'air', b:'e1', type:'wifi', label:'Wireless extender link (Ashutosh)', segs:{} },
   { a:'air', b:'e2', type:'wifi', label:'Wireless extender link (Ashutosh)', segs:{} },
-  { a:'ap', b:'exc', type:'eth', label:'Back of the AP to front of this router', riser:[87,'second','first'], segs:{ second:'M265 158V125H87V28', first:'M87 28V120H350' } },
-  { a:'ap', b:'syr', type:'eth', label:'Back of the AP to front of this router', riser:[92,'second','ground'], segs:{ second:'M270 158V130H92V28', ground:'M92 28V270H120V247' } },
+  { a:'ap', b:'exc', type:'eth', label:'Back of the AP to front of this router', riser:[87,'second','first'], segs:{ second:'M215 148V125H87V28', first:'M87 28V120H350' } },
+  { a:'ap', b:'syr', type:'eth', label:'Back of the AP to front of this router', riser:[92,'second','ground'], segs:{ second:'M218 148V130H92V28', ground:'M92 28V270H120V247' } },
   { a:'syr', b:'tv', type:'lan', label:'Ethernet from the back of Syrotech', segs:{ ground:'M120 203V182H100V288H185' } },
 ];
-const HX = 6.5, HZ = 3, px = v => (v - 320) / 600 * 2 * HX, pz = v => (v - 160) / 280 * 2 * HZ;
+/* Building is 40 ft deep (x, away from the road) and 24 ft wide along the road (z) */
+const HX = 40 * .3048 / 2, HZ = 24 * .3048 / 2, STUB = 22 / 280 * 2 * HZ, px = v => (v - 320) / 600 * 2 * HX, pz = v => (v - 160) / 280 * 2 * HZ;
 const COL = { eth:0x2f6fd6, lan:0x2fbf7f, pon:0xff8a3d, nfs:0x4fd1c5, wifi:0xf2c063, virt:0xc39bff };
 const CSS = { router:'#6ea8fe', pi:'#7ee0a4', server:'#7ee0a4', virt:'#c39bff', store:'#4fd1c5', pc:'#7ee0a4', tv:'#7ee0a4' };
 
 /* ---------- Scene ---------- */
-const FH = 3.1, GAP = 4.2;          // storey height, extra spacing when floors lift apart
+const GH = 11 * .3048, UH = 10 * .3048, GAP = 4.2; // ground and upper storey heights, spacing when floors lift apart
+let FH = UH;                         // height of the floor currently being built
+const heightOf = id => id === 'ground' ? GH : UH;
 const stage = document.getElementById('stage');
 let renderer;
 try { renderer = new THREE.WebGLRenderer({ antialias:true, preserveDrawingBuffer:true }); }
@@ -201,11 +210,15 @@ const road = new THREE.Mesh(new THREE.PlaneGeometry(8, 240), std({ map:T.road })
 for (let z = -110; z < 110; z += 6) box(scene, -13.58, .001, z, -13.42, .012, z + 3, M.trim);
 box(scene, -9.5, 0, -HZ, -HX, .04, HZ, M.conc); // paved frontage joining the house to the road
 box(scene, -7.3, .04, -.8, -HX, .2, .8, M.conc); // entrance step
+const netMaterials = new Set();
 const pole = shadow(new THREE.Mesh(new THREE.CylinderGeometry(.09, .13, 10, 8), M.conc)); pole.position.set(-8.6, 5, 4.2); scene.add(pole);
-box(scene, -9.3, 9.3, 4.14, -7.9, 9.42, 4.26, M.dark);
+const poleArm = box(scene, -9.3, 9.3, 4.14, -7.9, 9.42, 4.26, M.dark);
 
 /* Floors */
 const floorGroups = {}, sideGroups = { front:[], back:[], left:[], right:[] }, partitions = [];
+/* Second-floor paint, picked from the room photo: white walls with one slate accent wall at the back of the house, opposite the road */
+const paintWhite = std({ color:0xe9e9e5, roughness:.75, side:THREE.DoubleSide }), paintSlate = std({ color:0x474f60, roughness:.75, side:THREE.DoubleSide });
+let curFloor = null;
 function wallPanel(parent, side, windows, h = FH) {
   const L = (side === 'front' || side === 'back') ? 2 * HX : 2 * HZ;
   const s = new THREE.Shape(); s.moveTo(0, 0); s.lineTo(L, 0); s.lineTo(L, h); s.lineTo(0, h); s.closePath();
@@ -216,6 +229,7 @@ function wallPanel(parent, side, windows, h = FH) {
   if (side === 'right') { g.position.set(HX, 0, -HZ); g.rotation.y = -Math.PI / 2; }
   if (side === 'left') { g.position.set(-HX + .2, 0, -HZ); g.rotation.y = -Math.PI / 2; }
   g.add(shadow(new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth:.2, bevelEnabled:false }), M.wall)));
+  if (curFloor === 'second') { const paint = new THREE.Mesh(new THREE.ShapeGeometry(s), side === 'right' ? paintSlate : paintWhite); paint.position.z = side === 'front' ? -.004 : .204; paint.receiveShadow = true; g.add(paint); }
   windows.forEach(w => {
     const a = w.u - w.w / 2, b = w.u + w.w / 2, c = w.y, d = w.y + w.h, t = .06, z0 = .04, z1 = .16;
     box(g, a, c, z0, a + t, d, z1, M.frame); box(g, b - t, c, z0, b, d, z1, M.frame);
@@ -230,7 +244,7 @@ function partition(p, wall, solid) {
   const [a0, b0, a1, b1, gap] = wall, x0 = px(a0), z0 = pz(b0), x1 = px(a1), z1 = pz(b1);
   const g = new THREE.Group(); p.add(g); partitions.push(g);
   const horiz = b0 === b1, a = horiz ? x0 : z0, b = horiz ? x1 : z1, c = gap == null ? null : (horiz ? px(gap) : pz(gap));
-  const seg = (s, e) => { if (e - s > .01) horiz ? box(g, s, 0, z0 - .05, e, FH, z0 + .05, M.inner) : box(g, x0 - .05, 0, s, x0 + .05, FH, e, M.inner); };
+  const seg = (s, e) => { if (e - s > .01) horiz ? box(g, s, 0, z0 - .05, e, FH, z0 + .05, curFloor === 'second' ? paintWhite : M.inner) : box(g, x0 - .05, 0, s, x0 + .05, FH, e, curFloor === 'second' ? paintWhite : M.inner); };
   if (c == null) seg(a, b); else { seg(a, c - .45); seg(c + .45, b); box(g, horiz ? c - .45 : x0 - .05, 2.15, horiz ? z0 - .05 : c - .45, horiz ? c + .45 : x0 + .05, FH, horiz ? z0 + .05 : c + .45, M.inner); }
 }
 function slab(p, holes) {
@@ -243,7 +257,43 @@ function slab(p, holes) {
     if (!rects.some(r => cx > r[0] && cx < r[2] && cz > r[1] && cz < r[3])) box(p, xs[i], -.2, zs[j], xs[i + 1], 0, zs[j + 1], M.conc);
   }
 }
-function plate(p, r, mat) { const m = new THREE.Mesh(new THREE.BoxGeometry(px(r[2]) - px(r[0]), .02, pz(r[3]) - pz(r[1])), mat); m.position.set((px(r[0]) + px(r[2])) / 2, .012, (pz(r[1]) + pz(r[3])) / 2); m.receiveShadow = true; p.add(m); }
+/* Second-floor tile: pale sage onyx with cream and tan diagonal veins, matched by eye to the user's photo. Tiles are 2 ft x 4 ft, long side running back from the road; one texture repeat = 2 x 2 tiles */
+const tileTex = canvasTex(1024, 1024, (g, w, h) => {
+  let seed = 41; const R = () => (seed = seed * 16807 % 2147483647) / 2147483647;
+  g.fillStyle = '#b7bdae'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 90; i++) { const x = R() * w, y = R() * h, r = 40 + R() * 150, c = g.createRadialGradient(x, y, 0, x, y, r), light = R() < .55; c.addColorStop(0, light ? 'rgba(222,226,212,.3)' : 'rgba(136,146,130,.24)'); c.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = c; g.fillRect(x - r, y - r, 2 * r, 2 * r); }
+  const vein = (x, y, a, len, col, wd) => { g.strokeStyle = col; g.lineWidth = wd; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < len; k++) { a += (R() - .5) * .7; x += Math.cos(a) * 26; y += Math.sin(a) * 26; g.lineTo(x, y); if (R() < .12) vein(x, y, a + (R() < .5 ? .8 : -.8), len / 3 | 0, col, wd * .6); } g.stroke(); };
+  for (const [ox, oy] of [[0, 0], [512, 0], [0, 512], [512, 512]]) {
+    g.save(); g.beginPath(); g.rect(ox, oy, 512, 512); g.clip();
+    for (let i = 0; i < 7; i++) vein(ox + R() * 512, oy + 512 * R(), -.95 + (R() - .5) * .5, 14 + R() * 14 | 0, i % 3 ? 'rgba(92,100,84,.42)' : 'rgba(176,136,82,.6)', 1 + R() * 2);
+    for (let i = 0; i < 16; i++) { const x = ox + R() * 512, y = oy + R() * 512; g.strokeStyle = 'rgba(236,236,224,.45)'; g.lineWidth = 2 + R() * 3; g.beginPath(); g.arc(x, y, 6 + R() * 22, R() * 6, R() * 6 + 2.4); g.stroke(); }
+    for (let i = 0; i < 6; i++) { g.fillStyle = 'rgba(184,138,74,.5)'; g.beginPath(); g.ellipse(ox + R() * 512, oy + R() * 512, 3 + R() * 9, 1.5 + R() * 3, -.9, 0, 6.3); g.fill(); }
+    g.restore();
+  }
+  g.strokeStyle = 'rgba(74,78,68,.75)'; g.lineWidth = 2; g.strokeRect(0, 0, 512, 512); g.strokeRect(512, 0, 512, 512); g.strokeRect(0, 512, 512, 512); g.strokeRect(512, 512, 512, 512);
+}, 2 * HX / (8 * .3048), 2 * HZ / (4 * .3048));
+const tileFloor = new THREE.MeshStandardMaterial({ map:tileTex, roughness:.2, metalness:.05 });
+/* Finished floor with the stair opening cut out, so you can see down through it */
+function floorFinish(p, holes, mat) {
+  const sh = new THREE.Shape(); sh.moveTo(-HX, -HZ); sh.lineTo(HX, -HZ); sh.lineTo(HX, HZ); sh.lineTo(-HX, HZ); sh.closePath();
+  holes.forEach(r => { const h = new THREE.Path(), a = px(r[0]), c = px(r[2]), b = -pz(r[3]), d = -pz(r[1]); h.moveTo(a, b); h.lineTo(a, d); h.lineTo(c, d); h.lineTo(c, b); h.closePath(); sh.holes.push(h); });
+  const geo = new THREE.ShapeGeometry(sh), pos = geo.attributes.position, uv = geo.attributes.uv;
+  for (let i = 0; i < pos.count; i++) uv.setXY(i, (pos.getX(i) + HX) / (2 * HX), (pos.getY(i) + HZ) / (2 * HZ));
+  geo.rotateX(-Math.PI / 2);
+  const m = new THREE.Mesh(geo, mat); m.position.y = .022; m.receiveShadow = true; p.add(m);
+}
+function plate(p, r, mat) { const m = new THREE.Mesh(new THREE.BoxGeometry(px(r[2]) - px(r[0]), .02, pz(r[3]) - pz(r[1])), mat); m.position.set((px(r[0]) + px(r[2])) / 2, .024, (pz(r[1]) + pz(r[3])) / 2); m.receiveShadow = true; p.add(m); }
+/* Stair finish: polished black granite treads with a bright nosing, over off-white risers */
+const stairRiser = std({ color:0xe6e2da, roughness:.6 });
+const stairGranite = new THREE.MeshStandardMaterial({ roughness:.18, metalness:.25, envMapIntensity:1.4, map:canvasTex(512, 256, (g, w, h) => {
+  g.fillStyle = '#121316'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 9000; i++) { const v = Math.random(), c = v < .7 ? '38,40,46' : v < .95 ? '74,76,84' : '150,152,160'; g.fillStyle = `rgba(${c},${.35 + Math.random() * .5})`; const r = .5 + Math.random() * 1.6; g.fillRect(Math.random() * w, Math.random() * h, r, r); }
+}, 1, 1) });
+const stairNosing = new THREE.MeshStandardMaterial({ color:0x8d9097, roughness:.2, metalness:.6 });
+function tread(p, x0, x1, z0, z1, y) {
+  const a = Math.min(x0, x1), b = Math.max(x0, x1), m = box(p, a, y - .03, z0 - .012, b, y + .012, z1 + .012, stairGranite);
+  return m;
+}
 /* Open flight: stepped top on a thin sloped stringer, hollow underneath, with a railing on the rz side */
 function flight(p, xa, xb, z0, z1, ya, yb, n, rz) {
   const run = (xb - xa) / n, rise = (yb - ya) / n, t = .22, s = new THREE.Shape();
@@ -252,7 +302,13 @@ function flight(p, xa, xb, z0, z1, ya, yb, n, rz) {
   s.lineTo(xb, yb - t);
   s.lineTo(xa + (xb - xa) * t / (yb - ya), ya);
   s.closePath();
-  const m = shadow(new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth:z1 - z0, bevelEnabled:false }), M.conc)); m.position.z = z0; p.add(m);
+  const m = shadow(new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth:z1 - z0, bevelEnabled:false }), stairRiser)); m.position.z = z0; p.add(m);
+  const over = Math.sign(run) * .03;
+  for (let i = 0; i < n; i++) {
+    const front = xa + i * run, y = ya + (i + 1) * rise;
+    tread(p, front - over, front + run, z0, z1, y);
+    const nx = front - over; box(p, Math.min(nx, nx + Math.sign(run) * .014), y - .03, z0 - .012, Math.max(nx, nx + Math.sign(run) * .014), y + .013, z1 + .012, stairNosing);
+  }
   const H = .9;
   for (let i = 0; i <= n; i += 2) { const k = Math.min(i, n - 1), x = xa + (k + .5) * run, y = ya + (k + 1) * rise; box(p, x - .02, y, rz - .02, x + .02, y + H, rz + .02, M.rail); }
   const dx = (n - 1) * run, dy = (n - 1) * rise, rail = new THREE.Mesh(new THREE.BoxGeometry(Math.hypot(dx, dy) + .1, .05, .05), M.rail);
@@ -266,7 +322,7 @@ function stairs(p, r) {
 function uStairs(p, L) {
   const [lx0, ly0, lx1, ly1] = L.landing, H1 = FH * .35, up = L.stairs[0], low = L.stairs[1];
   flight(p, px(low[0]), px(lx0), pz(low[1]), pz(low[3]), 0, H1, 5, pz(low[3]) - .04);
-  box(p, px(lx0), H1 - .15, pz(ly0), px(lx1), H1, pz(ly1), M.conc);
+  box(p, px(lx0), H1 - .15, pz(ly0), px(lx1), H1 - .03, pz(ly1), stairRiser); tread(p, px(lx0), px(lx1), pz(ly0), pz(ly1), H1);
   [[lx1, ly0], [lx1, ly1]].forEach(([x, y]) => box(p, px(x) - .08, 0, pz(y) + (y === ly0 ? 0 : -.08), px(x), H1 - .15, pz(y) + (y === ly0 ? .08 : 0), M.rail));
   flight(p, px(lx0), px(up[0]), pz(up[1]), pz(up[3]), H1, FH, 9, pz(up[3]) - .04);
 }
@@ -278,9 +334,10 @@ const rail = (p, x, z0, z1) => { for (let z = z0; z < z1; z += .16) box(p, x, 0,
 const below = { ground:null, first:'ground', second:'first', top:'second' };
 const WIN = [{ u:3, y:.9, w:2, h:1.4 }, { u:10.2, y:.9, w:2, h:1.4 }];
 FLOORS.forEach((f, i) => {
+  FH = heightOf(f.id); curFloor = f.id;
   const g = new THREE.Group(), L = LAYOUT[f.id]; g.position.y = i * FH; floorGroups[f.id] = g; scene.add(g);
   slab(g, below[f.id] ? LAYOUT[below[f.id]].stairs.slice(0, 1) : []);
-  plate(g, [20, 20, 620, 300], M.marble); (L.wood || []).forEach(r => plate(g, r, M.wood));
+  floorFinish(g, below[f.id] ? LAYOUT[below[f.id]].stairs.slice(0, 1) : [], f.id === 'second' ? tileFloor : M.marble); (L.wood || []).forEach(r => plate(g, r, M.wood));
   L.walls.forEach(w => partition(g, w));
   // fence along the floor opening where the stairs come up from below
   (L.fence || []).forEach(([x0, y0, x1, y1]) => { const X0 = px(x0), Z0 = pz(y0), X1 = px(x1), Z1 = pz(y1), len = Math.hypot(X1 - X0, Z1 - Z0), n = Math.round(len / .14);
@@ -311,13 +368,41 @@ FLOORS.forEach((f, i) => {
     wallPanel(g, 'back', [{ u:9, y:.95, w:1.4, h:1.2 }, { u:11.5, y:.95, w:1, h:1.2 }]);
     wallPanel(g, 'right', [{ u:1.5, y:.95, w:1.2, h:1.2 }, { u:4.5, y:.95, w:1.5, h:1.2 }]);
     if (L.balcony) { const q = new THREE.Group(); g.add(q); sideGroups.left.push(q); rail(q, -HX + .02, -HZ, HZ); box(q, -HX, FH - .15, -HZ, px(L.balcony), FH, HZ, M.trim); }
-    else { const lw = wallPanel(g, 'left', [{ u:1.3, y:.95, w:1.2, h:1.2 }, { u:3, y:.05, w:1.1, h:2.3 }, { u:4.7, y:.95, w:1.2, h:1.2 }]); box(lw, 2.5, .08, .12, 3.5, 2.3, .17, M.door); box(lw, 2.2, 2.45, .2, 3.8, 2.6, 1.1, M.accent); }
+    else { const lw = wallPanel(g, 'left', [{ u:1.8, y:.95, w:1.4, h:1.3 }, { u:HZ, y:.05, w:1.1, h:2.3 }, { u:2 * HZ - 1.8, y:.95, w:1.4, h:1.3 }]); box(lw, HZ - .5, .08, .12, HZ + .5, 2.3, .17, M.door); box(lw, HZ - .8, 2.45, .2, HZ + .8, 2.6, 1.1, M.accent); }
   }
 });
+FH = UH; curFloor = null;
 const fl = floorGroups;
+/* A person on a chair, facing the desk (-z), hands at the keyboard */
+function seatedPerson(p, x, z, shirt, trousers) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); p.add(g);
+  const skin = std({ color:0xc99a76 }), top = std({ color:shirt }), legs = std({ color:trousers }), hair = std({ color:0x1d1712 }), shoe = M.dark;
+  const seatH = .46;
+  box(g, -.23, seatH - .05, -.22, .23, seatH, .22, M.dark);                    // seat
+  box(g, -.22, seatH + .12, .2, .22, seatH + .62, .25, M.dark);                // backrest
+  box(g, -.025, seatH, .2, .025, seatH + .14, .24, M.metal);
+  box(g, -.025, .08, -.025, .025, seatH - .05, .025, M.metal);                 // column
+  for (let i = 0; i < 5; i++) { const a = i / 5 * 6.283, l = new THREE.Mesh(new THREE.BoxGeometry(.3, .03, .04), M.dark); l.position.set(Math.cos(a) * .15, .08, Math.sin(a) * .15); l.rotation.y = -a; l.castShadow = true; g.add(l); }
+  [-.1, .1].forEach(sx => {
+    box(g, sx - .07, seatH, -.3, sx + .07, seatH + .14, .12, legs);            // thigh
+    box(g, sx - .055, .08, -.36, sx + .055, seatH + .02, -.24, legs);          // shin
+    box(g, sx - .06, 0, -.46, sx + .06, .08, -.24, shoe);                      // shoe
+    const upper = box(g, sx * 2.1 - .04, seatH + .28, -.03, sx * 2.1 + .04, seatH + .56, .05, top); // upper arm
+    upper.rotation.x = .25;
+    box(g, sx * 1.7 - .035, seatH + .27, -.36, sx * 1.7 + .035, seatH + .33, -.02, top); // forearm
+    box(g, sx * 1.2 - .04, seatH + .28, -.46, sx * 1.2 + .04, seatH + .32, -.36, skin);  // hand
+  });
+  box(g, -.17, seatH + .12, -.07, .17, seatH + .62, .11, top);                 // torso
+  box(g, -.04, seatH + .62, -.03, .04, seatH + .7, .05, skin);                 // neck
+  const head = shadow(new THREE.Mesh(new THREE.SphereGeometry(.105, 18, 14), skin)); head.position.set(0, seatH + .8, -.01); g.add(head);
+  const cap = shadow(new THREE.Mesh(new THREE.SphereGeometry(.112, 18, 10, 0, 6.283, 0, 1.45), hair)); cap.position.set(0, seatH + .81, .015); cap.rotation.x = .35; g.add(cap);
+}
+seatedPerson(fl.second, px(DEVICES.cb.x), pz(DEVICES.cb.y) + .62, 0x3f6fb5, 0x2c3440);
+seatedPerson(fl.second, px(DEVICES.ab.x), pz(DEVICES.ab.y) + .62, 0xb5533f, 0x38404d);
 { const [x0, y0, x1, y1] = LAYOUT.first.wardrobe, n = 6, X0 = px(x0), X1 = px(x1), Z0 = pz(y0), Z1 = pz(y1) - .05;
   box(fl.first, X0, 0, Z0, X1, 2.15, Z1, M.door);
   for (let i = 1; i < n; i++) { const x = X0 + (X1 - X0) * i / n; box(fl.first, x - .008, .05, Z0 - .006, x + .008, 2.1, Z0, M.dark); if (i % 2) { box(fl.first, x - .07, .95, Z0 - .03, x - .04, 1.25, Z0, M.metal); box(fl.first, x + .04, .95, Z0 - .03, x + .07, 1.25, Z0, M.metal); } } }
+bathroom(fl.second, 325, 285);
 bed(fl.first, 158, 215); bed(fl.first, 570, 250); counter(fl.first, 498, 22, 618, 45); bathroom(fl.first, 305, 280); bathroom(fl.first, 401, 280);
 bed(fl.ground, 207, 240); bed(fl.ground, 560, 240); counter(fl.ground, 323, 22, 443, 45); bathroom(fl.ground, 450, 280); box(fl.ground, px(450), 0, pz(22), px(615), 1.9, pz(50), M.door);
 
@@ -366,19 +451,19 @@ function deviceModel(d) {
       const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
       const lab = new THREE.Mesh(new THREE.PlaneGeometry(.24, .12), new THREE.MeshBasicMaterial({ map:tex, toneMapped:false })); lab.position.set(.17 * sd, h * .55, sd * .285); if (sd < 0) lab.rotation.y = Math.PI; g.add(lab);
       // router-to-router cable drops from the ceiling; device and fibre cables come up from the floor
-      const id = Object.keys(DEVICES).find(k => DEVICES[k] === d), ls = LINKS.filter(l => sd > 0 ? l.b === id : l.a === id), C = FH - .12;
+      const id = Object.keys(DEVICES).find(k => DEVICES[k] === d), ls = LINKS.filter(l => sd > 0 ? l.b === id : l.a === id), C = heightOf(d.floor) - .12;
       const cm = t => std({ color:COL[t], emissive:COL[t], emissiveIntensity:.35 });
       if (d.floor !== 'top' && ls.some(l => l.type === 'eth')) { const m = cm('eth');
         box(g, .01, h + .02, sd * .3 - .02, .05, C, sd * .3 + .02, m);
         box(g, .01, h + .02, Math.min(sd * .18, sd * .3), .05, h + .05, Math.max(sd * .18, sd * .3), m);
-        box(g, -.3, C - .02, sd * .47 - .02, .3, C + .02, sd * .47 + .02, m);
-        box(g, .01, C - .02, Math.min(sd * .3, sd * .47), .05, C + .02, Math.max(sd * .3, sd * .47), m); }
+        box(g, -.3, C - .02, sd * STUB - .02, .3, C + .02, sd * STUB + .02, m);
+        box(g, .01, C - .02, Math.min(sd * .3, sd * STUB), .05, C + .02, Math.max(sd * .3, sd * STUB), m); }
       const low = ls.find(l => l.type === 'pon') || ls.find(l => d.floor === 'top' && l.type === 'eth') || ls.find(l => l.type === 'lan');
       if (low) { const m = cm(low.type);
         box(g, -.05, .03, sd * .3 - .02, -.01, h + .05, sd * .3 + .02, m);
         box(g, -.05, h + .02, Math.min(sd * .18, sd * .3), -.01, h + .05, Math.max(sd * .18, sd * .3), m);
-        box(g, -.3, .03, sd * .47 - .02, .3, .07, sd * .47 + .02, m);
-        box(g, -.05, .03, Math.min(sd * .3, sd * .47), -.01, .07, Math.max(sd * .3, sd * .47), m); }
+        box(g, -.3, .03, sd * STUB - .02, .3, .07, sd * STUB + .02, m);
+        box(g, -.05, .03, Math.min(sd * .3, sd * STUB), -.01, .07, Math.max(sd * .3, sd * STUB), m); }
     }); }
   if (d.kind === 'pi') { const h = stand(.75); box(g, -.13, h, -.09, .13, h + .05, .09, std({ color:0x2d6e43 })); box(g, -.05, h + .05, -.04, .05, h + .08, .04, M.metal); led(.09, h + .07, .06); }
   if (d.kind === 'server') { box(g, -.3, 0, -.4, .3, 1.5, .4, M.dark); for (let y = .25; y < 1.4; y += .28) { box(g, -.27, y, .39, .27, y + .2, .41, M.metal); led(.2, y + .1, .42); } }
@@ -403,14 +488,15 @@ Object.entries(DEVICES).forEach(([id, d]) => {
 /* Cables */
 function parse(seg, Y = .05) { const pts = []; let x, y; seg.match(/[MHV][^MHV]+/g).forEach(t => { const k = t[0], n = t.slice(1).trim().split(/\s+/).map(Number); if (k === 'M') { x = n[0]; y = n[1]; } if (k === 'H') x = n[0]; if (k === 'V') y = n[0]; pts.push(new THREE.Vector3(px(x), Y, pz(y))); }); return pts; }
 function poly(pts) { const c = new THREE.CurvePath(); for (let i = 1; i < pts.length; i++) c.add(new THREE.LineCurve3(pts[i - 1], pts[i])); return c; }
-const pulses = [], linkMeshes = [], stretched = [];
+const pulses = [], linkMeshes = [], stretched = [], topWires = [];
 LINKS.forEach((l, i) => {
   const mat = new THREE.MeshStandardMaterial({ color:COL[l.type], emissive:COL[l.type], emissiveIntensity:.35, roughness:.5, transparent:true });
-  linkMeshes[i] = { mat, l };
+  linkMeshes[i] = { mat, l }; netMaterials.add(mat);
   Object.entries(l.segs).forEach(([floor, seg]) => {
-    const curve = poly(parse(seg, l.type === 'eth' && floor !== 'top' ? FH - .12 : .05));
-    const m = new THREE.Mesh(new THREE.TubeGeometry(curve, 80, l.type === 'virt' ? .025 : .042, 6), mat); floorGroups[floor].add(m);
+    const curve = poly(parse(seg, l.type === 'eth' && floor !== 'top' ? heightOf(floor) - .12 : .05));
+    const m = new THREE.Mesh(new THREE.TubeGeometry(curve, 80, l.type === 'virt' ? .025 : .042, 6), mat); floorGroups[floor].add(m); if (floor === 'top' && !l.riser) topWires.push(m);
     const pm = new THREE.Mesh(new THREE.SphereGeometry(.06, 8, 6), new THREE.MeshBasicMaterial({ color:COL[l.type], transparent:true })); floorGroups[floor].add(pm);
+    if (floor === 'top' && !l.riser) topWires.push(pm);
     pulses.push({ pm, curve, t:Math.random(), s:.18 + Math.random() * .1, link:i });
   });
   if (l.riser) {
@@ -424,7 +510,7 @@ LINKS.forEach((l, i) => {
 /* Wi-Fi link to the PC, drawn as an arc of dots */
 { const i = LINKS.findIndex(l => l.type === 'wifi'); const a = DEVICES.ap, b = DEVICES.cb;
   const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(px(a.x), 1, pz(a.y)), new THREE.Vector3((px(a.x) + px(b.x)) / 2, 2.6, pz(a.y) - .3), new THREE.Vector3(px(b.x), 1.2, pz(b.y)));
-  const mat = new THREE.MeshBasicMaterial({ color:COL.wifi, transparent:true }); linkMeshes[i] = { mat, l:LINKS[i] };
+  const mat = new THREE.MeshBasicMaterial({ color:COL.wifi, transparent:true }); linkMeshes[i] = { mat, l:LINKS[i] }; netMaterials.add(mat);
   for (let k = 1; k < 15; k++) { const s = new THREE.Mesh(new THREE.SphereGeometry(.03, 6, 5), mat); s.position.copy(curve.getPoint(k / 15)); floorGroups.second.add(s); }
 }
 /* Wireless extender links cross floors, so their dots follow the floors as they lift */
@@ -442,7 +528,7 @@ const waves = [];
 /* ---------- State ---------- */
 let mode = 'outside', floorSel = 'all', selected = null, spread = 0, tween = null;
 const $ = id => document.getElementById(id);
-const floorY = (id, s = spread) => (id === 'roof' ? 4 : LEVEL[id]) * (FH + s * GAP);
+const floorY = (id, s = spread) => { const n = id === 'roof' ? 4 : LEVEL[id]; return (n ? GH + (n - 1) * UH : 0) + n * s * GAP; };
 function flyTo(pos, tgt) { tween = { p:new THREE.Vector3(...pos), t:new THREE.Vector3(...tgt), k:0 }; }
 controls.addEventListener('start', () => { tween = null; });
 function view() {
@@ -460,6 +546,7 @@ function sync() {
   floorGroups.roof.visible = floorSel === 'all';
 }
 function select(id, quiet) {
+  if (id && rackView) setRack(false);
   selected = id;
   Object.entries(devObjs).forEach(([k, o]) => { o.r.visible = k === id; o.lab.classList.toggle('sel', k === id); const near = !id || k === id || LINKS.some(l => (l.a === id && l.b === k) || (l.b === id && l.a === k)); o.lab.classList.toggle('dim', !near); });
   linkMeshes.forEach(({ mat, l }) => { const on = !id || l.a === id || l.b === id; mat.opacity = on ? 1 : .12; });
@@ -467,30 +554,62 @@ function select(id, quiet) {
   render();
   if (id && !quiet) { mode = 'inside'; floorSel = DEVICES[id].floor; sync(); const d = DEVICES[id], y = floorY(d.floor, 1); flyTo([px(d.x) * .4 - 9, y + 6, pz(d.y) * .4 + 6], [px(d.x) * .7, y + .8, pz(d.y) * .6]); if (matchMedia('(max-width:820px)').matches) $('panel').scrollIntoView({ behavior:'smooth', block:'start' }); }
 }
-[['outside', 'Outside'], ['inside', 'See inside']].forEach(([v, n]) => { const b = document.createElement('button'); b.type = 'button'; b.dataset.v = v; b.textContent = n; b.onclick = () => { setMode(v); }; $('modeSeg').appendChild(b); });
-[['all', 'All floors'], ['top', 'Top'], ['second', 'Second'], ['first', 'First'], ['ground', 'Ground']].forEach(([v, n]) => { const b = document.createElement('button'); b.type = 'button'; b.dataset.v = v; b.textContent = n; b.onclick = () => { select(null, true); setFloor(v); }; $('floorSeg').appendChild(b); });
+[['outside', 'Outside'], ['inside', 'See inside']].forEach(([v, n]) => { const b = document.createElement('button'); b.type = 'button'; b.dataset.v = v; b.textContent = n; b.onclick = () => { if (rackView) setRack(false); setMode(v); }; $('modeSeg').appendChild(b); });
+[['all', 'All floors'], ['top', 'Top'], ['second', 'Second'], ['first', 'First'], ['ground', 'Ground']].forEach(([v, n]) => { const b = document.createElement('button'); b.type = 'button'; b.dataset.v = v; b.textContent = n; b.onclick = () => { if (rackView && v !== 'top') setRack(false); select(null, true); setFloor(v); }; $('floorSeg').appendChild(b); });
 
 /* Transparent walls: ghost every wall, and stop hiding the ones facing the camera */
 let seeThrough = false;
 function setWalls(on) {
   seeThrough = on;
-  [M.wall, M.inner].forEach(m => { m.transparent = on; m.opacity = on ? .2 : 1; m.depthWrite = !on; m.needsUpdate = true; });
-  scene.traverse(o => { if (o.isMesh && (o.material === M.wall || o.material === M.inner)) o.castShadow = !on; });
+  [M.wall, M.inner, paintWhite, paintSlate].forEach(m => { m.transparent = on; m.opacity = on ? .2 : 1; m.depthWrite = !on; m.needsUpdate = true; });
+  scene.traverse(o => { if (o.isMesh && (o.material === M.wall || o.material === M.inner || o.material === paintWhite || o.material === paintSlate)) o.castShadow = !on; });
   $('wallBtn').setAttribute('aria-pressed', on);
 }
 $('wallBtn').onclick = () => setWalls(!seeThrough);
 
+/* Rack view: top-floor equipment moves into the rack, shown beside the house */
+let rackView = false;
+const rackModel = new THREE.Group(); rackModel.position.set(px(60), 0, pz(125)); rackModel.visible = false; floorGroups.top.add(rackModel);
+{ const w = .305, d = .47, H = 1.28;
+  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([a, b]) => box(rackModel, a * w - .05, 0, b * d - .025, a * w + .05, H, b * d + .025, M.metal));
+  [.08, .23, .38, .53, .72, .87, 1.02, 1.17].forEach(y => box(rackModel, -w, y, -d, w, y + .012, d, M.conc));
+  [[.09, .09, .4, M.dark], [.24, .03, .2, M.dark], [.39, .03, .12, M.leaf], [.54, .03, .12, M.leaf], [.73, .04, .3, M.dark], [.88, .04, .3, M.dark], [1.03, .04, .3, M.dark]].forEach(([y, h, wd, mat]) => box(rackModel, -wd / 2 - .08, y, y < .2 ? -.4 : -.15, wd / 2 + .08, y + h, .15 + (y < .2 ? .25 : 0), mat));
+  const c = document.createElement('canvas'); c.width = 400; c.height = 72; const g = c.getContext('2d');
+  g.fillStyle = 'rgba(255,255,255,.93)'; g.beginPath(); g.roundRect(2, 2, 396, 68, 14); g.fill(); g.fillStyle = '#26364f'; g.font = '700 40px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('SERVER RACK', 200, 38);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const lab = new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, toneMapped:false })); lab.scale.set(1.9, .34, 1); lab.position.y = 1.6; rackModel.add(lab); }
+function setRack(on) {
+  rackView = on;
+  document.body.classList.toggle('rack', on);
+  $('rackBtn').setAttribute('aria-pressed', on);
+  rackModel.visible = on;
+  Object.values(devObjs).filter(o => o.d.floor === 'top').forEach(o => { o.g.visible = !on; });
+  if (on) { selected = null; select(null, true); $('panel').innerHTML = '<iframe src="../rack/index.html?loadout=topfloor" title="Server rack with the top-floor equipment"></iframe>'; setFloor('top'); }
+  else render();
+  topWires.forEach(m => { m.visible = !on; });
+  size();
+}
+$('rackBtn').onclick = () => { setRack(!rackView); if (!rackView) { floorSel = 'all'; sync(); view(); } };
+
 /* ---------- Panel ---------- */
 const status = {}; let checked = false;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+function inventory() {
+  const K = Object.values(DEVICES), n = f => K.filter(f).length, L = t => LINKS.filter(l => l.type === t).length;
+  return [['Routers and gateway', n(d => d.kind === 'router')], ['Servers', n(d => d.kind === 'server' || d.kind === 'pi')], ['Storage', n(d => d.kind === 'store')], ['Virtual machines', n(d => d.kind === 'virt')], ['PCs and TV', n(d => d.kind === 'pc' || d.kind === 'tv')],
+    ['PON fibres', L('pon')], ['Router-to-router cables', L('eth')], ['Device cables', L('lan')], ['Wi-Fi links', L('wifi')], ['Virtual links', L('virt')], ['Street pole', 1], ['Server rack (Rack view)', 1]]
+    .map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('');
+}
 function render() {
+  if (rackView) return;
   const box = $('panel');
   if (!selected) {
     const svc = new Set(Object.values(DEVICES).flatMap(d => d.services.filter(s => /^https?:/.test(s[1] || '')).map(s => s[1])));
     const up = [...svc].filter(u => status[u]).length;
     const list = [...FLOORS].reverse().map(f => `<h4>${f.name}</h4><ul>${Object.entries(DEVICES).filter(([, d]) => d.floor === f.id).map(([k, d]) => `<li><button class="linkbtn" data-go="${k}">${esc(d.name)}</button>${d.ip ? ` <span class="sub">· ${esc(d.ip)}</span>` : ''}</li>`).join('')}</ul>`).join('');
     box.innerHTML = `<h3>The house at a glance</h3><p class="sub" style="margin:6px 0">PON fibres from the nearby pole feed the Airtel-Ashutosh and Excitel routers, which connect to the ER605 as redundant lines. It feeds the AP on the second floor, which feeds the routers below.</p>
-      <dl class="kv"><dt>Web services answering</dt><dd>${location.protocol === 'https:' ? 'Only checked on a local copy' : checked ? up + ' of ' + svc.size : 'Checking…'}</dd><dt>Wi-Fi networks</dt><dd>${[...new Set(Object.values(DEVICES).filter(d => d.ssid).map(d => esc(d.ssid)))].join(', ')}</dd><dt>Cable colours</dt><dd><span style="color:#ff8a3d">Orange</span> PON fibre, <span style="color:#6ea8fe">blue</span> router to router (in ceiling and walls, on the floor on the top floor only), <span style="color:#3ecf8e">green</span> router to device, <span style="color:#f2c063">amber</span> Wi-Fi, <span style="color:#c39bff">purple</span> virtual</dd><dt>Routers</dt><dd>Front is input, back is output</dd></dl>${list}
+      <dl class="kv"><dt>Web services answering</dt><dd>${location.protocol === 'https:' ? 'Only checked on a local copy' : checked ? up + ' of ' + svc.size : 'Checking…'}</dd><dt>Wi-Fi networks</dt><dd>${[...new Set(Object.values(DEVICES).filter(d => d.ssid).map(d => esc(d.ssid)))].join(', ')}</dd><dt>Cable colours</dt><dd><span style="color:#ff8a3d">Orange</span> PON fibre, <span style="color:#6ea8fe">blue</span> router to router (in ceiling and walls, on the floor on the top floor only), <span style="color:#3ecf8e">green</span> router to device, <span style="color:#f2c063">amber</span> Wi-Fi, <span style="color:#c39bff">purple</span> virtual</dd><dt>Routers</dt><dd>Front is input, back is output</dd></dl>
+      <h4>Building</h4><dl class="kv"><dt>Footprint</dt><dd>24 ft wide x 40 ft deep</dd><dt>Floor heights</dt><dd>Ground 11 ft, others 10 ft</dd><dt>Office rooms</dt><dd>13 ft x 7 ft each</dd></dl><h4>Network objects</h4><dl class="kv">${inventory()}</dl>${list}
       <p class="note">Select "See inside" to lift the floors apart, or pick a device to go to it. Drag to orbit, scroll to zoom.</p>
       <p class="note" style="margin-bottom:0">Devices and addresses come from local.internal (snapshot 5 Nov 2026), without logins. Rooms follow the hand-drawn plans. Size, exterior, exact device spots and cable routes are estimates. A grey dot means no reply to this browser, which doesn't prove a service is down.</p>`;
     return;
@@ -512,12 +631,12 @@ el.addEventListener('pointerup', e => {
   if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
   const r = el.getBoundingClientRect(); ndc.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
   ray.setFromCamera(ndc, camera);
-  const h = ray.intersectObjects(hits.filter(m => devObjs[m.userData.id].g.parent.visible), false)[0];
+  const h = ray.intersectObjects(hits.filter(m => { const g = devObjs[m.userData.id].g; return g.parent.visible && g.visible; }), false)[0];
   if (h && (seeThrough || mode === 'inside')) select(h.object.userData.id);
 });
 
 /* Layout and loop */
-function size() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h); const side = innerWidth > 820 ? 352 : 0; camera.aspect = w / h; camera.setViewOffset(w, h, side / 2, 0, w, h); camera.updateProjectionMatrix(); }
+function size() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h); const side = innerWidth <= 820 ? 0 : rackView ? Math.min(innerWidth * .48, 680) + 24 : 352; camera.aspect = w / h; camera.setViewOffset(w, h, side / 2, 0, w, h); camera.updateProjectionMatrix(); }
 addEventListener('resize', size); size();
 const clock = new THREE.Clock(), v = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0), camDir = new THREE.Vector3();
 const NORMALS = { front:[0, 1], back:[0, -1], left:[-1, 0], right:[1, 0] };
@@ -536,12 +655,12 @@ function frame() {
   Object.entries(sideGroups).forEach(([s, gs]) => { const [nx, nz] = NORMALS[s], hide = !seeThrough && spread > .02 && nx * camDir.x + nz * camDir.z > .2; gs.forEach(g => { g.visible = !hide; }); });
   roomLabels.forEach(m => { m.visible = seeThrough || spread > .6; });
   partitions.forEach(g => { g.scale.y = seeThrough ? 1 : 1 - spread * .62; });
-  stretched.forEach(s => { const lo = new THREE.Vector3(s.x, floorY(s.b) + FH - .12, s.z), hi = new THREE.Vector3(s.x, floorY(s.a) + (s.a === 'top' ? .05 : FH - .12), s.z); stretch(s.m, lo, hi); s.m.visible = floorSel === 'all' ; });
-  drops.forEach(d => { stretch(d.m, new THREE.Vector3(-8.6, 9.4, 4.2), new THREE.Vector3(px(d.x), floorY('top') + 1.05, HZ)); d.m.visible = floorSel === 'all' || floorSel === 'top'; });
+  stretched.forEach(s => { const lo = new THREE.Vector3(s.x, floorY(s.b) + heightOf(s.b) - .12, s.z), hi = new THREE.Vector3(s.x, floorY(s.a) + (s.a === 'top' ? .05 : heightOf(s.a) - .12), s.z); stretch(s.m, lo, hi); s.m.visible = floorSel === 'all' ; });
+  drops.forEach(d => { stretch(d.m, new THREE.Vector3(-8.6, 9.4, 4.2), new THREE.Vector3(px(d.x), floorY('top') + 1.05, HZ)); d.m.visible = !rackView && (floorSel === 'all' || floorSel === 'top'); });
   const time = clock.elapsedTime;
   airDots.forEach(({ l, dots }) => {
     devObjs[l.a].g.getWorldPosition(dotA); devObjs[l.b].g.getWorldPosition(dotB); dotA.y += 1; dotB.y += 1;
-    const show = floorSel === 'all' && !(spread < .02 && !seeThrough);
+    const show = !rackView && floorSel === 'all' && !(spread < .02 && !seeThrough);
     dots.forEach((m, i) => { m.visible = show; m.position.lerpVectors(dotA, dotB, (i + 1 + (time * .8 % 1)) / (dots.length + 1)); });
   });
   pulses.forEach(p => { p.t = (p.t + dt * p.s) % 1; p.pm.position.copy(p.curve.getPointAt(p.t)); p.pm.position.y += .03; });
@@ -551,7 +670,7 @@ function frame() {
   // labels
   const W = stage.clientWidth, H = stage.clientHeight, placed = [];
   Object.values(devObjs).forEach(o => {
-    const show = (seeThrough || spread > .6) && o.g.parent.visible;
+    const show = (seeThrough || spread > .6) && o.g.parent.visible && o.g.visible;
     o.lab.style.display = show ? 'block' : 'none'; if (!show) return;
     o.g.getWorldPosition(v); v.y += o.d.kind === 'server' || o.d.kind === 'virt' ? 1.75 : 1.3; v.project(camera);
     placed.push({ o, x:(v.x + 1) / 2 * W, y:(1 - v.y) / 2 * H, w:o.lab.offsetWidth, h:o.lab.offsetHeight });
@@ -569,7 +688,28 @@ async function probe(u) { try { await fetch(u, { mode:'no-cors', cache:'no-store
 const urls = new Set(Object.values(DEVICES).flatMap(d => [d.probe, ...d.services.map(s => s[1])]).filter(u => /^https?:/.test(u || '')));
 if (location.protocol !== 'https:') Promise.all([...urls].map(async u => { status[u] = await probe(u); })).then(() => { checked = true; render(); });
 
-window.__home = { select, setMode, setFloor };
+/* ---------- Views: the house model is always on; each view adds its own objects on its own three.js layer ---------- */
+const NETWORK_LAYER = 1;
+const networkObjects = {
+  devices: Object.values(devObjs).map(o => o.g),
+  wires: [...new Set(pulses.map(p => p.pm)), ...stretched.map(x => x.m)],
+  wireless: [...waves.map(w => w.m), ...airDots.flatMap(a => a.dots)],
+  outside: [pole, poleArm, ...drops.map(d => d.m)],
+  rack: [rackModel],
+};
+scene.traverse(o => { if (o.isMesh && (netMaterials.has(o.material) || o.userData.netWire)) networkObjects.wires.push(o); });
+Object.values(networkObjects).flat().forEach(o => o.traverse(c => c.layers.set(NETWORK_LAYER)));
+ray.layers.set(NETWORK_LAYER);
+const VIEWS = { house:[], network:[NETWORK_LAYER] };
+let currentView = 'network';
+function setView(name) {
+  currentView = name;
+  camera.layers.set(0);
+  VIEWS[name].forEach(l => camera.layers.enable(l));
+  labelsEl.style.display = name === 'network' ? '' : 'none';
+}
+setView('network');
+window.__home = { select, setMode, setFloor, setRack, setView };
 sync(); render(); frame();
 </script>
 </body>
