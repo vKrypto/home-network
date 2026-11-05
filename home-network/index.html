@@ -19,7 +19,10 @@
   .seg button { background:none; border:0; color:var(--muted); font:inherit; padding:8px 12px; min-height:36px; cursor:pointer; }
   .seg button[aria-pressed=true] { background:#2a4570; color:var(--ink); }
   .plain-link { font:inherit; cursor:pointer; min-height:36px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 12px; text-decoration:none; color:var(--ink); }
-  #wallBtn[aria-pressed=true], #rackBtn[aria-pressed=true] { background:#2a4570; }
+  #wallBtn[aria-pressed=true], #rackBtn[aria-pressed=true], #labelBtn[aria-pressed=true], #panelBtn[aria-pressed=true] { background:#2a4570; }
+  body:not(.panel):not(.rack) #panel { display:none; }
+  body:not(.panel):not(.rack) #bar { right:16px; }
+  body.nolabels #labels { display:none !important; }
   body.rack #panel { width:min(48vw, 680px); padding:0; overflow:hidden; }
   body.rack #bar { right:min(calc(48vw + 28px), 708px); }
   #panel iframe { display:block; width:100%; height:100%; border:0; }
@@ -57,6 +60,8 @@
     <h1>Home Network</h1>
     <div class="seg" id="modeSeg" role="group" aria-label="View"></div>
     <div class="seg" id="floorSeg" role="group" aria-label="Floor"></div>
+    <button class="plain-link" id="labelBtn" type="button" aria-pressed="true">Labels</button>
+    <button class="plain-link" id="panelBtn" type="button" aria-pressed="false">Details</button>
     <button class="plain-link" id="rackBtn" type="button" aria-pressed="false">Rack view</button>
     <button class="plain-link" id="wallBtn" type="button" aria-pressed="false">Transparent walls</button>
   </div>
@@ -102,9 +107,9 @@ const LAYOUT = {
   top: { balcony:56, rooms:[['Balcony',38,240],['Room',60,30],['Barandah',160,285],['Open roof',460,130]], stairs:[], opening:[110,20,302,84], ladder:112,
     walls:[[56,20,56,166],[302,20,302,166],[56,166,302,166,103]] },
   second: { fence:[[136,86,276,86]], rooms:[['Balcony',42,260],['Hall',470,160],['Office-room-1',200,210],['Office-room-2',200,292],['Washroom',298,270]], stairs:[[110,20,302,84]], balcony:56, desks:[[116,157,230,188],[119,222,251,258]],
-    walls:[[56,20,56,300,105],[56,136.667,251,136.667],[56,218.333,251,218.333],[251,136.667,251,218.333,177],[251,218.333,251,256,236],[251,256,251,300],[251,256,345,256,300],[345,256,345,300]] },
+    glass:[[150,205],[232,286]], walls:[[56,20,56,136.667,105],[56,136.667,56,150],[56,205,56,232],[56,286,56,300],[56,136.667,251,136.667],[56,218.333,251,218.333],[251,136.667,251,218.333,177],[251,218.333,251,256,236],[251,256,251,300],[251,256,345,256,300],[345,256,345,300]] },
   first: { fence:[[136,86,276,86]], wardrobe:[254,122,446,146], rooms:[['Balcony',45,260],['Hall',190,135],['Kitchen',560,50],['Room 1',158,270],['Bath 1',305,270],['Bath 2',401,270],['Room 2',560,270]], stairs:[[110,20,302,84]], balcony:62,
-    walls:[[62,20,62,300,100],[62,146,620,146,470],[254,146,254,300],[356,146,356,300],[446,146,446,300],[494,20,494,76]], wood:[[62,146,254,300],[446,146,620,300]] },
+    glass:[[165,285]], walls:[[62,20,62,165,100],[62,285,62,300],[62,146,620,146,470],[254,146,254,300],[356,146,356,300],[446,146,446,300],[494,20,494,76]], wood:[[62,146,254,300],[446,146,620,300]] },
   ground: { rooms:[['Entrance',58,240],['Room 2',285,205],['Kitchen',383,60],['Store room',533,92],['Hall',401,165],['Bathroom',404,275],['Room 1',560,285]], stairs:[[110,20,320,84],[233,84,320,122]], landing:[296,20,320,122],
     walls:[[320,20,320,300,145],[320,112,446,112,380],[446,20,446,112],[446,112,620,112,470],[482,112,482,300,160],[320,216,482,216,400],[95,174,320,174,260],[95,174,95,300]], wood:[[95,174,320,300],[482,112,620,300]] },
 };
@@ -251,6 +256,15 @@ function partition(p, wall, solid) {
   const seg = (s, e) => { if (e - s > .01) horiz ? box(g, s, 0, z0 - .05, e, FH, z0 + .05, curFloor === 'second' ? paintWhite : M.inner) : box(g, x0 - .05, 0, s, x0 + .05, FH, e, curFloor === 'second' ? paintWhite : M.inner); };
   if (c == null) seg(a, b); else { seg(a, c - .45); seg(c + .45, b); box(g, horiz ? c - .45 : x0 - .05, 2.15, horiz ? z0 - .05 : c - .45, horiz ? c + .45 : x0 + .05, FH, horiz ? z0 + .05 : c + .45, M.inner); }
 }
+/* Full-height window in the balcony wall: frame, centre mullion and glass, with wall above */
+function fullWindow(p, x, y0, y1) {
+  const g = new THREE.Group(); p.add(g); partitions.push(g);
+  const X = px(x), a = pz(y0), b = pz(y1), top = 2.4, t = .05, wall = curFloor === 'second' ? paintWhite : M.inner;
+  box(g, X - .05, top, a, X + .05, FH, b, wall);
+  [[a, a + t], [b - t, b], [(a + b) / 2 - t / 2, (a + b) / 2 + t / 2]].forEach(([c, d]) => box(g, X - .03, 0, c, X + .03, top, d, M.frame));
+  box(g, X - .03, 0, a, X + .03, t, b, M.frame); box(g, X - .03, top - t, a, X + .03, top, b, M.frame);
+  box(g, X - .01, t, a + t, X + .01, top - t, b - t, M.glass).castShadow = false;
+}
 function slab(p, holes) {
   // cut any stair openings out of the floor with a simple grid of cells
   const rects = holes.map(r => [px(r[0]), pz(r[1]), px(r[2]), pz(r[3])]), e = .02;
@@ -343,6 +357,7 @@ FLOORS.forEach((f, i) => {
   slab(g, below[f.id] ? LAYOUT[below[f.id]].stairs.slice(0, 1) : []);
   floorFinish(g, below[f.id] ? LAYOUT[below[f.id]].stairs.slice(0, 1) : [], f.id === 'second' ? tileFloor : M.marble); (L.wood || []).forEach(r => plate(g, r, M.wood));
   L.walls.forEach(w => partition(g, w));
+  (L.glass || []).forEach(([y0, y1]) => fullWindow(g, L.balcony, y0, y1));
   // fence along the floor opening where the stairs come up from below
   (L.fence || []).forEach(([x0, y0, x1, y1]) => { const X0 = px(x0), Z0 = pz(y0), X1 = px(x1), Z1 = pz(y1), len = Math.hypot(X1 - X0, Z1 - Z0), n = Math.round(len / .14);
     for (let i = 0; i <= n; i++) { const x = X0 + (X1 - X0) * i / n, z = Z0 + (Z1 - Z0) * i / n; box(g, x - .012, 0, z - .012, x + .012, 1, z + .012, M.rail); }
@@ -551,6 +566,7 @@ function sync() {
   floorGroups.roof.visible = floorSel === 'all';
 }
 function select(id, quiet) {
+  if (id && !panelOpen) setPanel(true);
   if (id && rackView) setRack(false);
   selected = id;
   Object.entries(devObjs).forEach(([k, o]) => { o.r.visible = k === id; o.lab.classList.toggle('sel', k === id); const near = !id || k === id || LINKS.some(l => (l.a === id && l.b === k) || (l.b === id && l.a === k)); o.lab.classList.toggle('dim', !near); });
@@ -573,7 +589,10 @@ function setWalls(on) {
 $('wallBtn').onclick = () => setWalls(!seeThrough);
 
 /* Rack view: top-floor equipment moves into the rack, shown beside the house */
-let rackView = false;
+let rackView = false, panelOpen = false, labelsOn = true;
+function setPanel(on) { panelOpen = on; document.body.classList.toggle('panel', on); $('panelBtn').setAttribute('aria-pressed', on); size(); }
+$('panelBtn').onclick = () => setPanel(!panelOpen);
+$('labelBtn').onclick = () => { labelsOn = !labelsOn; document.body.classList.toggle('nolabels', !labelsOn); $('labelBtn').setAttribute('aria-pressed', labelsOn); };
 const rackModel = new THREE.Group(); rackModel.position.set(px(85), 0, pz(125)); rackModel.visible = false; floorGroups.top.add(rackModel);
 { const w = .305, d = .47, H = 1.28;
   [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([a, b]) => box(rackModel, a * w - .05, 0, b * d - .025, a * w + .05, H, b * d + .025, M.metal));
@@ -647,7 +666,7 @@ el.addEventListener('pointerup', e => {
 });
 
 /* Layout and loop */
-function size() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h); const side = innerWidth <= 820 ? 0 : rackView ? Math.min(innerWidth * .48, 680) + 24 : 352; camera.aspect = w / h; camera.setViewOffset(w, h, side / 2, 0, w, h); camera.updateProjectionMatrix(); }
+function size() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h); const side = innerWidth <= 820 ? 0 : rackView ? Math.min(innerWidth * .48, 680) + 24 : panelOpen ? 352 : 0; camera.aspect = w / h; camera.setViewOffset(w, h, side / 2, 0, w, h); camera.updateProjectionMatrix(); }
 addEventListener('resize', size); size();
 const clock = new THREE.Clock(), v = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0), camDir = new THREE.Vector3();
 const NORMALS = { front:[0, 1], back:[0, -1], left:[-1, 0], right:[1, 0] };
@@ -664,7 +683,7 @@ function frame() {
   $('needle').setAttribute('transform', `rotate(${THREE.MathUtils.radToDeg(controls.getAzimuthalAngle())})`);
   camDir.subVectors(camera.position, controls.target).setY(0).normalize();
   Object.entries(sideGroups).forEach(([s, gs]) => { const [nx, nz] = NORMALS[s], hide = !seeThrough && spread > .02 && nx * camDir.x + nz * camDir.z > .2; gs.forEach(g => { g.visible = !hide; }); });
-  roomLabels.forEach(m => { m.visible = seeThrough || spread > .6; });
+  roomLabels.forEach(m => { m.visible = labelsOn && (seeThrough || spread > .6); });
   partitions.forEach(g => { g.scale.y = seeThrough ? 1 : 1 - spread * .62; });
   stretched.forEach(s => { const lo = new THREE.Vector3(s.x, floorY(s.b) + heightOf(s.b) - .12, s.z), hi = new THREE.Vector3(s.x, floorY(s.a) + (s.a === 'top' ? .05 : heightOf(s.a) - .12), s.z); stretch(s.m, lo, hi); s.m.visible = floorSel === 'all' ; });
   drops.forEach(d => { stretch(d.m, new THREE.Vector3(-8.6, 9.4, 4.2), new THREE.Vector3(px(d.x), floorY('top') + 1.05, HZ)); d.m.visible = floorSel === 'all' || floorSel === 'top'; });
