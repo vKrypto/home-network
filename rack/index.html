@@ -8,6 +8,7 @@
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
   body { display: flex; font: 13px/1.4 system-ui, sans-serif; color: #1d2733; background: #e9edf1; }
+  body.embed aside { display: none; }
   #view { position: relative; flex: 1; min-width: 0; overflow: hidden; }
   #view canvas { display: block; }
   #labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
@@ -55,6 +56,7 @@
     #view { flex: none; height: 55vh; }
     aside { width: 100%; flex: 1; border-left: 0; border-top: 1px solid #cfd6dd; }
   }
+  body.embed #view { flex: 1; height: 100%; }
 </style>
 <script type="importmap">
 { "imports": {
@@ -91,7 +93,7 @@
       <option value="vent">All vented</option>
     </select></label>
   <label class="f">Width (in) <input id="width" type="number" min="14" max="48" value="24"></label>
-  <label class="f">Depth (in) <input id="depth" type="number" min="10" max="36" value="18"></label>
+  <label class="f">Depth (in) <input id="depth" type="number" min="10" max="48" value="37"></label>
 
   <h2>Material</h2>
   <label class="f">Material type
@@ -211,6 +213,14 @@ const CATS = {
 };
 const catOn = { joint: true, foot: true, shelf: false, cover: true, leg: false, hook: false, power: true, server: true, switch: true, monitor: true };
 const accOn = { hook: true, strip: true, inlet: true, server: true, switch: true, monitor: true };
+/* ?loadout=topfloor: embedded view with the house's top-floor equipment on the shelves */
+const LOADOUT = new URLSearchParams(location.search).get('loadout') === 'topfloor';
+if (LOADOUT) {
+  document.body.classList.add('embed');
+  Object.keys(catOn).forEach(k => { catOn[k] = k === 'server'; });
+  accOn.server = accOn.switch = false; accOn.loadout = true;
+  document.querySelectorAll('[data-acc=server],[data-acc=switch]').forEach(b => { b.checked = false; });
+}
 
 const $ = id => document.getElementById(id);
 const view = $('view'), labelsEl = $('labels'), mLabelEl = $('mLabel');
@@ -447,7 +457,7 @@ function buildStrip(g, top, W, D) {
 
 // 2U, 12-bay server modelled on the reference photo: silver chassis, 4 x 3 large
 // drive carriers, a label ear on the left and a control panel ear on the right.
-const SERVER = { w: 17.54, h: 3.44, d: 27.5, ear: 0.68 };
+const SERVER = { w: 18, h: 4, d: 32, ear: 0.68 };
 function buildServer(g, top, w, depth, zc) {
   const h = SERVER.h, y = top + h / 2 + 0.1, front = zc + depth / 2, f = front + 0.05;
   box(g, w, h, depth, 0, y, zc, MAT.silver);
@@ -776,7 +786,7 @@ function build() {
   parts = []; points = []; items = []; hot = null; cur = null; collecting = true;
 
   const clamp = (el, lo, hi) => { const v = Math.max(lo, Math.min(hi, +el.value || lo)); el.value = v; return v; };
-  const M = clamp($('modules'), 1, 4), W = clamp($('width'), 14, 48), D = clamp($('depth'), 10, 36);
+  const M = clamp($('modules'), 1, 4), W = clamp($('width'), 14, 48), D = clamp($('depth'), 10, 48);
   plateT = +$('plateThk').value / 25.4;
   const nShelf = +$('shelves').value, pattern = $('pattern').value;
   const H = M * LEG_H, a = W / 2, b = D / 2, ax = a - LEG_W, bz = b - LEG_D;
@@ -925,6 +935,45 @@ function build() {
     addPoint(mon, `D-${c}${monLeg}`, `Monitor rail to outer 2 in face of leg L${monMod}-${c}${monLeg}`, 'monitor', v3(monSide * (a + 0.3), monY, s * monZ));
   devs.push({ name: 'Side monitor', acc: 'monitor', x: monSide * (a + 0.6), y: monY - 0.6, z: 0, cross: monY - 0.6 });
 
+  if (LOADOUT) {
+    MAT.cord.loadout = MAT.cord.server;
+    devs.splice(0, devs.length - 1);
+    const pcb = std('#2d6e43', 0, 0.6), z0 = bz - 0.3;
+    const LIST = [
+      [0, 0, 'Proxmox host', 'Hypervisor, runs the proxmox-ubuntu-10 VM', 'server'],
+      [0, 1, 'sdc backup drive', '1 TB drive attached to the Proxmox host', 'drive'],
+      [0, 2, 'networkeye', 'Raspberry Pi, monitoring', 'pi'],
+      [0, 3, 'reception', 'Raspberry Pi, Pi-hole DNS', 'pi'],
+      [1, 0, 'ER605', 'Omada multi-WAN gateway', 'gateway'],
+      [1, 1, 'Airtel-Ashutosh', 'Airtel PON router', 'router'],
+      [1, 2, 'Excitel', 'Excitel PON router', 'router'],
+    ];
+    for (const [m, n, name, desc, kind] of LIST) {
+      const sh = shelves.find(x => x.m === m && x.n === n);
+      if (!sh) continue;
+      const g = addPart('server', sh.explode.clone().add(v3(0, 5, 0)), 'loadout');
+      begin(g, name, 'server', `${desc}, on shelf ${sh.id}`);
+      let dw = 9, dh = 1.5, dd = 6;
+      if (kind === 'server') {
+        dw = Math.min(SERVER.w, W - 2.2); dh = SERVER.h; dd = Math.min(SERVER.d, z0 + (sh === host ? b - 4.2 : bz - 0.3));
+        buildServer(g, sh.top, dw, dd, z0 - dd / 2);
+      } else if (kind === 'pi') {
+        dw = 3.5; dh = 1.2; dd = 2.5;
+        box(g, dw, 0.15, dd, 0, sh.top + 0.4, z0 - dd / 2, pcb);
+        box(g, 1, 0.6, 1, 0, sh.top + 0.8, z0 - dd / 2, MAT.silverDark);
+      } else if (kind === 'drive') {
+        dw = 3.2; dh = 1; dd = 5;
+        box(g, dw, dh, dd, 0, sh.top + 0.1 + dh / 2, z0 - dd / 2, MAT.bay);
+      } else {
+        box(g, dw, dh, dd, 0, sh.top + 0.1 + dh / 2, z0 - dd / 2, MAT.bay);
+        if (kind === 'router') for (const sx of [-1, 1]) box(g, 0.14, 3, 0.14, sx * (dw / 2 - 0.6), sh.top + dh + 1.6, z0 - dd + 0.3, MAT.bay);
+      }
+      if (kind !== 'server') box(g, 0.14, 0.14, 0.04, dw / 2 - 0.5, sh.top + 0.1 + dh / 2, z0 + 0.01, MAT.led);
+      addPoint(g, name, desc, 'server', v3(-dw / 2, sh.top + dh + 0.3, z0));
+      devs.push({ name, acc: 'loadout', x: dw / 2 - 0.5, y: sh.top + 0.6, z: z0 - dd - 0.1, cross: sh.top + 0.6 });
+    }
+  }
+
   cur = null;
 
   // Power cords: device rear, over the shelf's back edge, down the open channel of
@@ -974,7 +1023,7 @@ function build() {
   const cut = [];
   if (minW < SERVER.w) cut.push(`width to ${minW.toFixed(1)} in`);
   if (minDepth < SERVER.d) cut.push(`depth to ${minDepth.toFixed(1)} in`);
-  $('serverNote').textContent = `Assumed real size: ${SERVER.w} W x ${SERVER.h} H x ${SERVER.d} D in.` +
+  $('serverNote').textContent = `Real size: ${SERVER.w} W x ${SERVER.h} H x ${SERVER.d} D in.` +
     (cut.length ? ` Shortened to fit this rack: ${cut.join(', ')}.` : ' Fits at full size.');
 
   // Power entry on the back, in a hole row no shelf layout uses.
@@ -1202,7 +1251,7 @@ function frame(mode) {
   else parts.filter(g => g.visible).forEach(g => b3.expandByObject(g));
   const c = b3.getCenter(new THREE.Vector3());
   const r = b3.getSize(new THREE.Vector3()).length() / 2;
-  const dist = r / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2)) * (camera.aspect < 1 ? 1.5 : 1.05);
+  const dist = r / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2)) * (camera.aspect < 1 ? (LOADOUT ? 1.08 : 1.5) : LOADOUT ? .85 : 1.05);
   const dir = { iso: v3(0.7, 0.42, 1), front: v3(0, 0, 1), back: v3(-0.45, 0.25, -1), side: v3(1, 0, 0), top: v3(0, 1, 0.001) }[mode].normalize();
   controls.target.copy(c);
   camera.position.copy(c).addScaledVector(dir, dist);
@@ -1283,7 +1332,7 @@ function keyFacts(it, size) {
     case 'hook': return ['Reaches 1.3 in from the leg', 'Plate 2.4 x 1.2 in'];
     case 'strip': return ['Strip body up to 14 x 2 x 1.3 in', 'Assumed size, check your strip'];
     case 'inlet': return ['Panel 2.4 in tall', 'Socket housing up to 4 x 2 in'];
-    case 'server': return [`Assumed real size ${SERVER.w} x ${SERVER.h} x ${SERVER.d} in`, size.z < SERVER.d ? `Drawn shortened to fit: ${fmtIn(size.z)} deep` : 'Drawn at full size'];
+    case 'server': return [`Real size ${SERVER.w} x ${SERVER.h} x ${SERVER.d} in`, size.z < SERVER.d ? `Drawn shortened to fit: ${fmtIn(size.z)} deep` : 'Drawn at full size'];
     case 'switch': return [`Assumed real size ${SWITCH.w} x ${SWITCH.h} x ${SWITCH.d} in`, '1U height'];
     case 'monitor': { const d = +$('monSize').value; return [`${d} in diagonal, 16:9`, `Screen ${fmtIn(d * 0.872)} x ${fmtIn(d * 0.49)}`, 'Rail 1.5 in tall']; }
     default: return [];
@@ -1492,7 +1541,7 @@ $('accAll').onchange = e => {
 $('focus').onchange = () => { selectItem(null); applyVisibility(); applyExplode(); frame('iso'); };
 $('explode').oninput = applyExplode;
 document.querySelectorAll('[data-v]').forEach(b => b.onclick = () => frame(b.dataset.v));
-addEventListener('resize', resize);
+addEventListener('resize', () => { resize(); if (LOADOUT) frame('iso'); });
 resize();
 build();
 loop();
