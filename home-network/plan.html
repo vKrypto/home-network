@@ -110,55 +110,49 @@
         <div><svg width="30" height="8"><line x1="0" y1="4" x2="30" y2="4" class="cable nfs"/></svg> NFS share (runs over the network)</div>
         <div><svg width="30" height="10"><rect x="1" y="1" width="28" height="8" class="riser"/></svg> Riser between floors</div>
       </div>
-      <p class="note" style="margin-bottom:0">Devices, addresses and links come from local.internal (snapshot 5 Nov 2026). Rooms and positions are placeholders: edit <code>FLOORS</code> and <code>DEVICES</code> in this file to match the house. Logins are left out on purpose.</p>
+      <p class="note" style="margin-bottom:0">Devices, addresses and links come from local.internal (snapshot 5 Nov 2026). Rooms follow the hand-drawn plans. Exact device spots and cable routes are estimates: edit <code>LAYOUT</code> and <code>DEVICES</code> in this file. Logins are left out on purpose.</p>
     </section>
   </aside>
 </main>
 
 <script>
 /* ---------- Data: copied from local.internal, never includes credentials ---------- */
-const FLOORS = [
-  { id: 'top', name: 'Top floor', rooms: [
-      { n: 'Room', x: 135, y: 72 }, { n: 'Store', x: 515, y: 72 }, { n: 'Server room', x: 75, y: 152 } ],
-    parts: ['M20 130H250', 'M410 130H620', 'M250 130H410'],
-    doors: [[215, 130, 1], [440, 130, 1]] },
-  { id: 'second', name: 'Second floor', rooms: [
-      { n: 'Bedroom', x: 135, y: 200 }, { n: 'Room', x: 515, y: 72 }, { n: 'Hall', x: 275, y: 365 }, { n: 'Office', x: 575, y: 365 } ],
-    parts: ['M250 20V380', 'M410 130V380', 'M410 130H620', 'M250 130H410'],
-    doors: [[250, 300, 0], [410, 320, 0]] },
-  { id: 'first', name: 'First floor', rooms: [
-      { n: 'Living room', x: 135, y: 365 }, { n: 'Kitchen', x: 515, y: 72 }, { n: 'Bedroom', x: 515, y: 365 }, { n: 'Hall', x: 330, y: 365 } ],
-    parts: ['M250 130V380', 'M410 130V380', 'M410 130H620', 'M250 130H410', 'M20 130H250'],
-    doors: [[250, 300, 0], [410, 320, 0]] },
-  { id: 'ground', name: 'Ground floor', rooms: [
-      { n: 'Living room', x: 135, y: 365 }, { n: 'Room', x: 515, y: 72 }, { n: 'Bedroom', x: 515, y: 365 }, { n: 'Entrance', x: 330, y: 365 } ],
-    parts: ['M250 130V380', 'M410 130V380', 'M410 130H620', 'M250 130H410', 'M20 130H250'],
-    doors: [[250, 300, 0], [410, 320, 0]] },
-];
+/* Traced from the hand-drawn floor plans. Plan units: footprint x 20-620, y 20-300. [x1,y1,x2,y2,door centre] */
+const LAYOUT = {
+  top: { rooms:[['Room',57,70],['Barandah',160,285],['Open roof',460,160]], stairs:[[110,20,302,84]],
+    walls:[[302,20,302,166],[20,166,302,166,255]] },
+  second: { rooms:[['Balcony',42,260],['Hall',470,160],['System',240,172],['System',270,290]], stairs:[[110,20,302,84]], balcony:56, desks:[[116,157,230,188],[119,222,251,258]],
+    walls:[[56,20,56,300,105],[56,154,302,154,280],[56,219,302,219,280],[302,154,302,300]] },
+  first: { wardrobe:[254,122,446,146], rooms:[['Balcony',45,260],['Hall',190,135],['Kitchen',560,50],['Room 1',158,270],['Bath 1',305,270],['Bath 2',401,270],['Room 2',560,270]], stairs:[[110,20,302,84]], balcony:62,
+    walls:[[62,20,62,300,100],[62,146,620,146,470],[254,146,254,300],[356,146,356,300],[446,146,446,300],[494,20,494,76]], wood:[[62,146,254,300],[446,146,620,300]] },
+  ground: { rooms:[['Room 2',207,285],['Kitchen',383,60],['Store room',533,60],['Hall',401,165],['Bathroom',404,275],['Room 1',560,285]], stairs:[[110,20,320,84],[233,84,320,122]], landing:[296,20,320,122],
+    walls:[[320,20,320,300,145],[320,112,446,112,380],[446,20,446,112],[446,112,620,112,470],[482,112,482,300,160],[320,216,482,216,400],[95,174,320,174,260],[95,174,95,300]], wood:[[95,174,320,300],[482,112,620,300]] },
+};
+const FLOORS = [ { id:'top', name:'Top floor' }, { id:'second', name:'Second floor' }, { id:'first', name:'First floor' }, { id:'ground', name:'Ground floor' } ];
 
 const DEVICES = {
-  up: { name: 'Ashutosh', role: 'Main router, ISP-facing', kind: 'router', floor: 'top', x: 75, y: 245, ip: '192.168.1.1',
+  up: { name: 'Ashutosh', role: 'Airtel router, feeds ER605 WAN 1', kind: 'router', floor: 'top', x: 60, y: 115, ip: '192.168.1.1',
         facts: { Network: '192.168.1.0/24', 'Wi-Fi': 'Ashutosh', Hostname: 'main-router.local.internal' },
         probe: 'http://192.168.1.1', services: [['Router admin', 'http://192.168.1.1']] },
-  er: { name: 'ER605', role: 'Omada gateway and DHCP server', kind: 'router', floor: 'top', x: 185, y: 245, ip: '192.168.100.1',
-        facts: { LAN: '192.168.100.0/23', WAN: '192.168.1.4 (dynamic)', 'DNS handed out': '192.168.100.5', Hostname: 'er605.local.internal' },
+  er: { name: 'ER605', role: 'Omada multi-WAN gateway and DHCP server', kind: 'router', floor: 'top', x: 130, y: 115, ip: '192.168.100.1',
+        facts: { LAN: '192.168.100.0/23', 'WAN 1 (Airtel)': '192.168.1.4 (dynamic)', 'WAN 2 (Excitel)': 'Address not recorded yet', 'DNS handed out': '192.168.100.5', Hostname: 'er605.local.internal' },
         probe: 'http://192.168.100.1', services: [['Router admin', 'http://192.168.100.1']] },
-  rec: { name: 'reception', role: 'Pi-hole, the LAN\'s only DNS resolver', kind: 'host', floor: 'top', x: 320, y: 170, ip: '192.168.100.5',
+  rec: { name: 'reception', role: 'Pi-hole, the LAN\'s only DNS resolver', kind: 'host', floor: 'top', x: 200, y: 115, ip: '192.168.100.5',
         facts: { OS: 'Debian 13', Hostname: 'reception.local.internal' },
         probe: 'http://pihole.local.internal',
         services: [['Pi-hole admin', 'http://pihole.local.internal'], ['Pi-hole DNS', null, ':53'], ['Chrony NTP', null, ':123'], ['Node Exporter', null, ':9100']] },
-  ne: { name: 'networkeye', role: 'Network and infrastructure monitoring', kind: 'host', floor: 'top', x: 320, y: 245, ip: '192.168.100.3',
+  ne: { name: 'networkeye', role: 'Network and infrastructure monitoring', kind: 'host', floor: 'top', x: 270, y: 115, ip: '192.168.100.3',
         facts: { Hardware: 'Raspberry Pi', Hostname: 'networkeye.local.internal' },
         probe: 'http://grafana-net.local.internal',
         services: [['ntopng', 'https://ntopng.local.internal'], ['Grafana (network)', 'http://grafana-net.local.internal'], ['Uptime Kuma', 'http://uptime.local.internal'], ['rsyslog receiver', null, ':514']] },
-  pve: { name: 'Proxmox host', role: 'Hypervisor, runs VM 100, owns the storage', kind: 'host', floor: 'top', x: 320, y: 320, ip: '192.168.100.4',
+  pve: { name: 'Proxmox host', role: 'Hypervisor, runs VM 100, owns the storage', kind: 'host', floor: 'top', x: 70, y: 215, ip: '192.168.100.4',
         facts: { Hostname: 'server1.local.internal', Boot: 'sdb, 477 GB SSD', 'ZFS pool': 'sda, 3.6 TB HDD (tank)' },
         probe: 'http://files-host.local.internal',
         services: [['Proxmox web UI', 'https://proxmox.local.internal'], ['File Browser (tank)', 'http://files-host.local.internal']] },
-  sdc: { name: 'sdc', role: 'backup_drive, 1 TB NTFS, attached to the Proxmox host', kind: 'store', floor: 'top', x: 460, y: 320, ip: 'backup_drive',
+  sdc: { name: 'sdc', role: 'backup_drive, 1 TB NTFS, attached to the Proxmox host', kind: 'store', floor: 'top', x: 150, y: 215, ip: 'backup_drive',
         facts: { 'Mount path': '/mnt/nfs/backup_drive', 'NFS clients': 'creator-base, proxmox-ubuntu-10' },
         services: [['SMB share', 'smb://192.168.100.4/backup_drive'], ['FTP share', 'ftp://192.168.100.4/'], ['NFS export', null, '192.168.100.4']] },
-  ubu: { name: 'proxmox-ubuntu-10', role: 'VM 100 on the Proxmox host, runs every Docker stack', kind: 'virt', floor: 'top', x: 550, y: 230, ip: '192.168.100.10',
+  ubu: { name: 'proxmox-ubuntu-10', role: 'VM 100 on the Proxmox host, runs every Docker stack', kind: 'virt', floor: 'top', x: 240, y: 215, ip: '192.168.100.10',
         facts: { Swarm: 'docker-swarm-1', Hostname: 'docker-vm.local.internal' },
         probe: 'http://local.internal',
         services: [['Nginx Proxy Manager', 'http://npm.local.internal', 'proxy'], ['Grafana (containers)', 'http://grafana.local.internal', 'monitoring'],
@@ -168,45 +162,37 @@ const DEVICES = {
           ['Jellyfin', 'http://jellyfin.local.internal', 'media'], ['Docker Registry UI', 'http://registry.local.internal', 'registry'],
           ['Immich', 'http://immich.local.internal', 'immich'], ['Nextcloud', 'http://nextcloud.local.internal', 'immich'],
           ['job-seeker', 'http://jobseeker.local.internal', 'job_seeker'], ['AI Team', 'http://ai-team.local.internal', 'ai_team']] },
-  ap: { name: 'AC1750 Wi-Fi AP', role: 'Archer A7 in access point mode', kind: 'router', floor: 'second', x: 330, y: 255, ip: '192.168.100.7',
+  ap: { name: 'AC1750 Wi-Fi AP', role: 'Archer A7 in access point mode', kind: 'router', floor: 'second', x: 400, y: 190, ip: '192.168.100.7',
         facts: { 'Wi-Fi': 'Ashutosh-Secured', Hostname: 'wifi-ap.local.internal' },
         probe: 'http://192.168.100.7', services: [['AP admin', 'http://192.168.100.7']] },
-  cb: { name: 'creator-base', role: 'Admin PC, one machine with two network cards', kind: 'pc', floor: 'second', x: 515, y: 255, ip: '.8 wired / .6 Wi-Fi',
+  cb: { name: 'creator-base', role: 'Admin PC, one machine with two network cards', kind: 'pc', floor: 'second', x: 185, y: 245, ip: '.8 wired / .6 Wi-Fi',
         facts: { 'Wired (enp5s0)': '192.168.100.8', 'Wi-Fi (wlo1)': '192.168.100.6' },
         services: [['AI Team (dev)', 'http://ai-team-dev.local.internal']] },
-  exc: { name: 'Excitel-Syrotech', role: 'Router', kind: 'router', floor: 'first', x: 135, y: 255, ip: '',
-        facts: { Uplink: 'Ethernet to the AC1750', 'Admin address': 'Not recorded yet' }, services: [] },
-  syr: { name: 'Syrotech', role: 'Router', kind: 'router', floor: 'ground', x: 135, y: 255, ip: '',
+  exc: { name: 'Excitel-Syrotech', role: 'Excitel router, feeds ER605 WAN 2', kind: 'router', floor: 'first', x: 350, y: 134, ip: '',
+        facts: { Location: 'On the wardrobe, hall side of the bathroom wall', Downlink: 'Ethernet to ER605 WAN 2', 'Admin address': 'Not recorded yet' }, services: [] },
+  syr: { name: 'Syrotech', role: 'Router', kind: 'router', floor: 'ground', x: 550, y: 185, ip: '',
         facts: { Uplink: 'Ethernet to the AC1750', 'Admin address': 'Not recorded yet' }, services: [] },
 };
 
-/* Riser slots: 378 ER605-AP, 386 NFS, 394 AP-first floor, 402 AP-ground floor */
+/* Riser slots in plan x: 77 ER605-AP, 82 NFS, 87 AP-first floor, 92 AP-ground floor */
 const LINKS = [
-  { a: 'inet', b: 'up', type: 'eth', label: 'Internet', segs: { top: 'M20 245H53' } },
-  { a: 'up', b: 'er', type: 'eth', label: 'Ethernet to ER605 WAN (192.168.1.4)', segs: { top: 'M97 245H163' } },
-  { a: 'er', b: 'rec', type: 'eth', label: 'Ethernet', segs: { top: 'M207 238H255V170H298' } },
-  { a: 'er', b: 'ne', type: 'eth', label: 'Ethernet', segs: { top: 'M207 245H298' } },
-  { a: 'er', b: 'pve', type: 'eth', label: 'Ethernet', segs: { top: 'M207 252H255V320H298' } },
-  { a: 'pve', b: 'sdc', type: 'eth', label: 'Attached drive', segs: { top: 'M342 320H438' } },
-  { a: 'pve', b: 'ubu', type: 'eth', label: 'Virtual machine on this host', segs: { top: 'M342 312H395V230H528' } },
-  { a: 'er', b: 'ap', type: 'eth', label: 'Ethernet', segs: {
-      top: 'M185 223V140H378V30',
-      second: 'M378 20V170H330V233' } },
-  { a: 'sdc', b: 'cb', type: 'nfs', label: 'NFS mount', segs: {
-      top: 'M460 298V158H386V30',
-      second: 'M386 20V150H515V233' } },
-  { a: 'ap', b: 'cb', type: 'eth', label: 'Ethernet (192.168.100.8)', segs: { second: 'M352 262H493' } },
-  { a: 'ap', b: 'cb', type: 'wifi', label: 'Wi-Fi (192.168.100.6)', segs: { second: 'M345 236Q430 190 496 238' } },
-  { a: 'ap', b: 'exc', type: 'eth', label: 'Ethernet', segs: {
-      second: 'M352 248H394V120',
-      first: 'M394 20V170H135V233' } },
-  { a: 'ap', b: 'syr', type: 'eth', label: 'Ethernet', segs: {
-      second: 'M352 254H402V120',
-      first: 'M402 20V120',
-      ground: 'M402 20V170H135V233' } },
+  { a:'inet', b:'up', type:'eth', label:'Internet', segs:{ top:'M20 115H38' } },
+  { a:'up', b:'er', type:'eth', label:'Ethernet to ER605 WAN 1 (192.168.1.4)', segs:{ top:'M82 115H108' } },
+  { a:'er', b:'rec', type:'eth', label:'Ethernet', segs:{ top:'M152 115H178' } },
+  { a:'er', b:'ne', type:'eth', label:'Ethernet', segs:{ top:'M130 93V87H270V93' } },
+  { a:'er', b:'pve', type:'eth', label:'Ethernet', segs:{ top:'M108 125H100V180H70V193' } },
+  { a:'pve', b:'sdc', type:'eth', label:'Attached drive', segs:{ top:'M92 215H128' } },
+  { a:'pve', b:'ubu', type:'eth', label:'Virtual machine on this host', segs:{ top:'M92 208H110V185H240V193' } },
+  { a:'er', b:'ap', type:'eth', label:'Ethernet', segs:{ top:'M130 93V90H77V28', second:'M77 28V120H400V168' } },
+  { a:'sdc', b:'cb', type:'nfs', label:'NFS mount (runs over the network)', segs:{ top:'M150 193V176H104V88H82V28', second:'M82 28V135H185V223' } },
+  { a:'ap', b:'cb', type:'eth', label:'Ethernet (192.168.100.8)', segs:{ second:'M378 200H320V245H207' } },
+  { a:'ap', b:'cb', type:'wifi', label:'Wi-Fi (192.168.100.6)', segs: { second: 'M378 195Q290 160 200 225' } },
+  { a:'er', b:'exc', type:'eth', label:'Ethernet to ER605 WAN 2', segs:{ top:'M118 93V91H87V28', first:'M87 28V118H350V112' } },
+  { a:'inet', b:'exc', type:'eth', label:'Excitel internet line', segs:{ first:'M620 118H372' } },
+  { a:'ap', b:'syr', type:'eth', label:'Ethernet', segs:{ second:'M378 190H335V130H92V28', ground:'M92 28V150H400V185H528' } },
 ];
-const WIFI = [{ floor: 'top', x: 75, y: 245 }, { floor: 'second', x: 330, y: 255 }];
-const RISER_TAGS = { top: '↓ to second floor', second: '↑ top · ↓ first', first: '↑ second · ↓ ground', ground: '↑ first floor' };
+const WIFI = [{ floor: 'top', x: 60, y: 115 }, { floor: 'second', x: 400, y: 190 }];
+const RISER_TAGS = { top: '↓ 2nd', second: '↑ ↓', first: '↑ ↓', ground: '↑ 1st' };
 const COLORS = { router: 'var(--router)', host: 'var(--host)', virt: 'var(--virt)', store: 'var(--store)', pc: 'var(--host)' };
 
 /* ---------- Drawing ---------- */
@@ -238,29 +224,35 @@ function drawFloor(f) {
   const sec = document.createElement('section');
   sec.className = 'floor'; sec.dataset.floor = f.id;
   sec.innerHTML = `<h2>${f.name}</h2>`;
-  const svg = el('svg', { viewBox: '0 0 640 400', role: 'img', 'aria-label': `${f.name} plan` }, sec);
+  const svg = el('svg', { viewBox: '0 0 640 320', role: 'img', 'aria-label': `${f.name} plan` }, sec);
   const clip = el('clipPath', { id: 'clip-' + f.id }, svg);
-  el('rect', { x: 20, y: 20, width: 600, height: 360 }, clip);
+  el('rect', { x: 20, y: 20, width: 600, height: 280 }, clip);
 
   const rings = el('g', { 'clip-path': `url(#clip-${f.id})` }, svg);
   WIFI.filter(w => w.floor === f.id).forEach(w => [55, 105, 160, 220].forEach(r => el('circle', { class: 'ring', cx: w.x, cy: w.y, r }, rings)));
 
-  // stairs and riser share a position on every floor
-  for (let x = 262; x < 366; x += 13) el('line', { class: 'tread', x1: x, y1: 20, x2: x, y2: 130 }, svg);
-  el('path', { class: 'part', d: 'M250 20V130M370 20V130' }, svg);
-  el('text', { class: 'tag', x: 310, y: 79, 'text-anchor': 'middle' }, svg, 'Stairs').style.paintOrder = 'stroke';
-  el('rect', { class: 'riser', x: 372, y: 20, width: 36, height: 110 }, svg);
-  f.parts.forEach(d => el('path', { class: 'part', d }, svg));
-  f.doors.forEach(([x, y, horizontal]) => {
-    const d = horizontal ? `M${x} ${y}V${y + 26}A26 26 0 0 0 ${x + 26} ${y}` : `M${x} ${y}H${x + 26}A26 26 0 0 0 ${x} ${y - 26}`;
-    el('path', { class: 'door', d }, svg);
+  const L = LAYOUT[f.id];
+  L.stairs.forEach(([x0, y0, x1, y1]) => {
+    for (let x = x0 + 16; x < x1; x += 16) el('line', { class: 'tread', x1: x, y1: y0, x2: x, y2: y1 }, svg);
+    el('rect', { class: 'part', x: x0, y: y0, width: x1 - x0, height: y1 - y0 }, svg);
   });
-  el('rect', { class: 'wall', x: 20, y: 20, width: 600, height: 360 }, svg);
-  f.rooms.forEach(r => el('text', { class: 'roomname', x: r.x, y: r.y, 'text-anchor': 'middle' }, svg, r.n));
-  el('text', { class: 'tag', x: 414, y: 34 }, svg, RISER_TAGS[f.id]);
+  el('text', { class: 'tag', x: (L.stairs[0][0] + L.stairs[0][2]) / 2, y: L.stairs[0][1] + 40, 'text-anchor': 'middle' }, svg, 'Stairs');
+  if (L.landing) { const [x0, y0, x1, y1] = L.landing; el('rect', { x: x0, y: y0, width: x1 - x0, height: y1 - y0, fill: '#111d31', stroke: '#a9bcd8', 'stroke-width': 2 }, svg); }
+  el('rect', { class: 'riser', x: 74, y: 20, width: 21, height: 17 }, svg);
+  L.walls.forEach(([x0, y0, x1, y1, gap]) => {
+    const h = y0 === y1;
+    if (gap == null) return el('path', { class: 'part', d: `M${x0} ${y0}L${x1} ${y1}` }, svg);
+    el('path', { class: 'part', d: h ? `M${x0} ${y0}H${gap - 14}M${gap + 14} ${y0}H${x1}` : `M${x0} ${y0}V${gap - 14}M${x0} ${gap + 14}V${y1}` }, svg);
+    el('path', { class: 'door', d: h ? `M${gap - 14} ${y0}V${y0 + 28}A28 28 0 0 0 ${gap + 14} ${y0}` : `M${x0} ${gap - 14}H${x0 + 28}A28 28 0 0 1 ${x0} ${gap + 14}` }, svg);
+  });
+  if (L.wardrobe) { const [x0, y0, x1, y1] = L.wardrobe; el('rect', { class: 'part', x: x0, y: y0, width: x1 - x0, height: y1 - y0 }, svg); el('text', { class: 'tag', x: x0 + 6, y: y0 + 16 }, svg, 'Wardrobe'); }
+  (L.desks || []).forEach(([x0, y0, x1, y1]) => el('rect', { class: 'part', x: x0, y: y0, width: x1 - x0, height: y1 - y0 }, svg));
+  el('rect', { class: 'wall', x: 20, y: 20, width: 600, height: 280 }, svg);
+  L.rooms.forEach(([n, x, y]) => el('text', { class: 'roomname', x, y, 'text-anchor': 'middle', ...(n === 'Balcony' ? { transform: `rotate(-90 ${x} ${y})` } : {}) }, svg, n));
+  el('text', { class: 'tag', x: 72, y: 32, 'text-anchor': 'end' }, svg, RISER_TAGS[f.id]);
 
   LINKS.forEach((l, i) => { if (l.segs[f.id]) el('path', { class: `cable ${l.type}`, d: l.segs[f.id], 'data-link': i }, svg); });
-  if (f.id === 'top') el('text', { class: 'tag', x: 26, y: 238 }, svg, 'ISP');
+  if (f.id === 'top') el('text', { class: 'tag', x: 24, y: 108 }, svg, 'ISP');
 
   Object.entries(DEVICES).filter(([, d]) => d.floor === f.id).forEach(([id, d]) => {
     const c = COLORS[d.kind];
@@ -287,7 +279,7 @@ function overview() {
   const svc = new Set(Object.values(DEVICES).flatMap(d => d.services.filter(s => /^https?:/.test(s[1] || '')).map(s => s[1])));
   const up = [...svc].filter(u => status[u]).length;
   return `<h3>The house at a glance</h3>
-    <p class="sub">Internet enters on the top floor. The ER605 runs the LAN, and one Ethernet run feeds the AP on the second floor, which feeds the two routers below it.</p>
+    <p class="sub">Two internet lines feed the ER605: Airtel on the top floor and Excitel from the first floor. The ER605 runs the LAN and feeds the AP on the second floor, which feeds the Syrotech router.</p>
     <dl class="kv"><dt>Floors</dt><dd>${FLOORS.length}</dd><dt>Physical devices</dt><dd>${physical}</dd>
     <dt>Virtual machines</dt><dd>1</dd><dt>Web services answering</dt><dd id="upCount">${location.protocol === 'https:' ? 'Only checked on a local copy' : checked ? up + ' of ' + svc.size : 'Checking…'}</dd>
     <dt>Wi-Fi networks</dt><dd>Ashutosh, Ashutosh-Secured</dd></dl>

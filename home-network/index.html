@@ -18,7 +18,8 @@
   .seg { display:flex; flex-wrap:wrap; background:var(--panel); border:1px solid var(--line); border-radius:8px; overflow:hidden; }
   .seg button { background:none; border:0; color:var(--muted); font:inherit; padding:8px 12px; min-height:36px; cursor:pointer; }
   .seg button[aria-pressed=true] { background:#2a4570; color:var(--ink); }
-  .plain-link { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 12px; text-decoration:none; color:var(--ink); }
+  .plain-link { font:inherit; cursor:pointer; min-height:36px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 12px; text-decoration:none; color:var(--ink); }
+  #wallBtn[aria-pressed=true] { background:#2a4570; }
   #panel { position:absolute; top:12px; right:12px; bottom:12px; width:328px; overflow:auto; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; }
   #panel h3 { margin:0; font-size:17px; }
   #panel h4 { margin:14px 0 4px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:600; }
@@ -49,6 +50,7 @@
     <h1>Home Network</h1>
     <div class="seg" id="modeSeg" role="group" aria-label="View"></div>
     <div class="seg" id="floorSeg" role="group" aria-label="Floor"></div>
+    <button class="plain-link" id="wallBtn" type="button" aria-pressed="false">Transparent walls</button>
     <a class="plain-link" href="plan.html">2D plan</a>
   </div>
   <div id="labels"></div>
@@ -64,37 +66,49 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 /* ---------- Network data: copied from local.internal, never includes credentials ---------- */
 const FLOORS = [ { id:'ground', name:'Ground floor' }, { id:'first', name:'First floor' }, { id:'second', name:'Second floor' }, { id:'top', name:'Top floor' } ];
 const LEVEL = { ground:0, first:1, second:2, top:3 };
-/* x and y are plan coordinates: 50 units = 1 m across, 40 units = 1 m deep */
+/* x and y are plan coordinates, see LAYOUT */
 const DEVICES = {
-  up:{ name:'Ashutosh', role:'Main router, ISP-facing', kind:'router', floor:'top', x:75, y:245, ip:'192.168.1.1', facts:{ Network:'192.168.1.0/24', 'Wi-Fi':'Ashutosh', Hostname:'main-router.local.internal' }, probe:'http://192.168.1.1', services:[['Router admin','http://192.168.1.1']] },
-  er:{ name:'ER605', role:'Omada gateway and DHCP server', kind:'router', floor:'top', x:185, y:245, ip:'192.168.100.1', facts:{ LAN:'192.168.100.0/23', WAN:'192.168.1.4 (dynamic)', 'DNS handed out':'192.168.100.5', Hostname:'er605.local.internal' }, probe:'http://192.168.100.1', services:[['Router admin','http://192.168.100.1']] },
-  rec:{ name:'reception', role:"Pi-hole, the LAN's only DNS resolver", kind:'pi', floor:'top', x:320, y:170, ip:'192.168.100.5', facts:{ OS:'Debian 13', Hostname:'reception.local.internal' }, probe:'http://pihole.local.internal', services:[['Pi-hole admin','http://pihole.local.internal'],['Pi-hole DNS',null,':53'],['Chrony NTP',null,':123'],['Node Exporter',null,':9100']] },
-  ne:{ name:'networkeye', role:'Network and infrastructure monitoring', kind:'pi', floor:'top', x:320, y:245, ip:'192.168.100.3', facts:{ Hardware:'Raspberry Pi', Hostname:'networkeye.local.internal' }, probe:'http://grafana-net.local.internal', services:[['ntopng','https://ntopng.local.internal'],['Grafana (network)','http://grafana-net.local.internal'],['Uptime Kuma','http://uptime.local.internal'],['rsyslog receiver',null,':514']] },
-  pve:{ name:'Proxmox host', role:'Hypervisor, runs VM 100, owns the storage', kind:'server', floor:'top', x:320, y:320, ip:'192.168.100.4', facts:{ Hostname:'server1.local.internal', Boot:'sdb, 477 GB SSD', 'ZFS pool':'sda, 3.6 TB HDD (tank)' }, probe:'http://files-host.local.internal', services:[['Proxmox web UI','https://proxmox.local.internal'],['File Browser (tank)','http://files-host.local.internal']] },
-  sdc:{ name:'sdc', role:'backup_drive, 1 TB NTFS, attached to the Proxmox host', kind:'store', floor:'top', x:460, y:320, ip:'backup_drive', facts:{ 'Mount path':'/mnt/nfs/backup_drive', 'NFS clients':'creator-base, proxmox-ubuntu-10' }, services:[['SMB share','smb://192.168.100.4/backup_drive'],['FTP share','ftp://192.168.100.4/'],['NFS export',null,'192.168.100.4']] },
-  ubu:{ name:'proxmox-ubuntu-10', role:'VM 100 on the Proxmox host, runs every Docker stack. Virtual, so not a physical box', kind:'virt', floor:'top', x:550, y:230, ip:'192.168.100.10', facts:{ Swarm:'docker-swarm-1', Hostname:'docker-vm.local.internal' }, probe:'http://local.internal', services:[['Nginx Proxy Manager','http://npm.local.internal','proxy'],['Grafana (containers)','http://grafana.local.internal','monitoring'],['Graylog','http://graylog.local.internal','monitoring'],['Portainer','https://portainer.local.internal','monitoring'],['File Browser (stacks)','http://files-vm.local.internal','monitoring'],['n8n','http://n8n.local.internal','n8n'],['OmniRoute','http://omniroute.local.internal','ai'],['Hermes','http://hermes.local.internal','ai'],['Jellyfin','http://jellyfin.local.internal','media'],['Docker Registry UI','http://registry.local.internal','registry'],['Immich','http://immich.local.internal','immich'],['Nextcloud','http://nextcloud.local.internal','immich'],['job-seeker','http://jobseeker.local.internal','job_seeker'],['AI Team','http://ai-team.local.internal','ai_team']] },
-  ap:{ name:'AC1750 Wi-Fi AP', role:'Archer A7 in access point mode', kind:'router', floor:'second', x:330, y:255, ip:'192.168.100.7', facts:{ 'Wi-Fi':'Ashutosh-Secured', Hostname:'wifi-ap.local.internal' }, probe:'http://192.168.100.7', services:[['AP admin','http://192.168.100.7']] },
-  cb:{ name:'creator-base', role:'Admin PC, one machine with two network cards', kind:'pc', floor:'second', x:515, y:255, ip:'.8 wired / .6 Wi-Fi', facts:{ 'Wired (enp5s0)':'192.168.100.8', 'Wi-Fi (wlo1)':'192.168.100.6' }, services:[['AI Team (dev)','http://ai-team-dev.local.internal']] },
-  exc:{ name:'Excitel-Syrotech', role:'Router', kind:'router', floor:'first', x:135, y:255, ip:'', facts:{ Uplink:'Ethernet to the AC1750', 'Admin address':'Not recorded yet' }, services:[] },
-  syr:{ name:'Syrotech', role:'Router', kind:'router', floor:'ground', x:135, y:255, ip:'', facts:{ Uplink:'Ethernet to the AC1750', 'Admin address':'Not recorded yet' }, services:[] },
+  up:{ name:'Ashutosh', role: 'Airtel router, feeds ER605 WAN 1', kind:'router', floor:'top', x:60, y:115, ip:'192.168.1.1', facts:{ Network:'192.168.1.0/24', 'Wi-Fi':'Ashutosh', Hostname:'main-router.local.internal' }, probe:'http://192.168.1.1', services:[['Router admin','http://192.168.1.1']] },
+  er:{ name:'ER605', role: 'Omada multi-WAN gateway and DHCP server', kind:'router', floor:'top', x:130, y:115, ip:'192.168.100.1', facts:{ LAN:'192.168.100.0/23', 'WAN 1 (Airtel)': '192.168.1.4 (dynamic)', 'WAN 2 (Excitel)': 'Address not recorded yet', 'DNS handed out':'192.168.100.5', Hostname:'er605.local.internal' }, probe:'http://192.168.100.1', services:[['Router admin','http://192.168.100.1']] },
+  rec:{ name:'reception', role:"Pi-hole, the LAN's only DNS resolver", kind:'pi', floor:'top', x:200, y:115, ip:'192.168.100.5', facts:{ OS:'Debian 13', Hostname:'reception.local.internal' }, probe:'http://pihole.local.internal', services:[['Pi-hole admin','http://pihole.local.internal'],['Pi-hole DNS',null,':53'],['Chrony NTP',null,':123'],['Node Exporter',null,':9100']] },
+  ne:{ name:'networkeye', role:'Network and infrastructure monitoring', kind:'pi', floor:'top', x:270, y:115, ip:'192.168.100.3', facts:{ Hardware:'Raspberry Pi', Hostname:'networkeye.local.internal' }, probe:'http://grafana-net.local.internal', services:[['ntopng','https://ntopng.local.internal'],['Grafana (network)','http://grafana-net.local.internal'],['Uptime Kuma','http://uptime.local.internal'],['rsyslog receiver',null,':514']] },
+  pve:{ name:'Proxmox host', role:'Hypervisor, runs VM 100, owns the storage', kind:'server', floor:'top', x:70, y:215, ip:'192.168.100.4', facts:{ Hostname:'server1.local.internal', Boot:'sdb, 477 GB SSD', 'ZFS pool':'sda, 3.6 TB HDD (tank)' }, probe:'http://files-host.local.internal', services:[['Proxmox web UI','https://proxmox.local.internal'],['File Browser (tank)','http://files-host.local.internal']] },
+  sdc:{ name:'sdc', role:'backup_drive, 1 TB NTFS, attached to the Proxmox host', kind:'store', floor:'top', x:150, y:215, ip:'backup_drive', facts:{ 'Mount path':'/mnt/nfs/backup_drive', 'NFS clients':'creator-base, proxmox-ubuntu-10' }, services:[['SMB share','smb://192.168.100.4/backup_drive'],['FTP share','ftp://192.168.100.4/'],['NFS export',null,'192.168.100.4']] },
+  ubu:{ name:'proxmox-ubuntu-10', role:'VM 100 on the Proxmox host, runs every Docker stack. Virtual, so not a physical box', kind:'virt', floor:'top', x:240, y:215, ip:'192.168.100.10', facts:{ Swarm:'docker-swarm-1', Hostname:'docker-vm.local.internal' }, probe:'http://local.internal', services:[['Nginx Proxy Manager','http://npm.local.internal','proxy'],['Grafana (containers)','http://grafana.local.internal','monitoring'],['Graylog','http://graylog.local.internal','monitoring'],['Portainer','https://portainer.local.internal','monitoring'],['File Browser (stacks)','http://files-vm.local.internal','monitoring'],['n8n','http://n8n.local.internal','n8n'],['OmniRoute','http://omniroute.local.internal','ai'],['Hermes','http://hermes.local.internal','ai'],['Jellyfin','http://jellyfin.local.internal','media'],['Docker Registry UI','http://registry.local.internal','registry'],['Immich','http://immich.local.internal','immich'],['Nextcloud','http://nextcloud.local.internal','immich'],['job-seeker','http://jobseeker.local.internal','job_seeker'],['AI Team','http://ai-team.local.internal','ai_team']] },
+  ap:{ name:'AC1750 Wi-Fi AP', role:'Archer A7 in access point mode', kind:'router', floor:'second', x:400, y:190, ip:'192.168.100.7', facts:{ 'Wi-Fi':'Ashutosh-Secured', Hostname:'wifi-ap.local.internal' }, probe:'http://192.168.100.7', services:[['AP admin','http://192.168.100.7']] },
+  cb:{ name:'creator-base', role:'Admin PC, one machine with two network cards', kind:'pc', floor:'second', x:185, y:245, ip:'.8 wired / .6 Wi-Fi', facts:{ 'Wired (enp5s0)':'192.168.100.8', 'Wi-Fi (wlo1)':'192.168.100.6' }, services:[['AI Team (dev)','http://ai-team-dev.local.internal']] },
+  exc:{ name:'Excitel-Syrotech', role:'Excitel router, feeds ER605 WAN 2', kind:'router', floor:'first', x:350, y:134, elev:2.15, ip:'', facts:{ Location:'On the wardrobe, hall side of the bathroom wall', Downlink: 'Ethernet to ER605 WAN 2', 'Admin address':'Not recorded yet' }, services:[] },
+  syr:{ name:'Syrotech', role:'Router', kind:'router', floor:'ground', x:550, y:185, ip:'', facts:{ Uplink:'Ethernet to the AC1750', 'Admin address':'Not recorded yet' }, services:[] },
 };
-/* Riser slots in plan x: 378 ER605-AP, 386 NFS, 394 AP-first floor, 402 AP-ground floor */
+/* Riser slots in plan x: 77 ER605-AP, 82 NFS, 87 AP-first floor, 92 AP-ground floor */
+/* Traced from the hand-drawn floor plans. Plan units: footprint x 20-620, y 20-300. [x1,y1,x2,y2,door centre] */
+const LAYOUT = {
+  top: { rooms:[['Room',57,70],['Barandah',160,285],['Open roof',460,160]], stairs:[[110,20,302,84]],
+    walls:[[302,20,302,166],[20,166,302,166,255]] },
+  second: { rooms:[['Balcony',42,260],['Hall',470,160],['System',240,172],['System',270,290]], stairs:[[110,20,302,84]], balcony:56, desks:[[116,157,230,188],[119,222,251,258]],
+    walls:[[56,20,56,300,105],[56,154,302,154,280],[56,219,302,219,280],[302,154,302,300]] },
+  first: { wardrobe:[254,122,446,146], rooms:[['Balcony',45,260],['Hall',190,135],['Kitchen',560,50],['Room 1',158,270],['Bath 1',305,270],['Bath 2',401,270],['Room 2',560,270]], stairs:[[110,20,302,84]], balcony:62,
+    walls:[[62,20,62,300,100],[62,146,620,146,470],[254,146,254,300],[356,146,356,300],[446,146,446,300],[494,20,494,76]], wood:[[62,146,254,300],[446,146,620,300]] },
+  ground: { rooms:[['Room 2',207,285],['Kitchen',383,60],['Store room',533,60],['Hall',401,165],['Bathroom',404,275],['Room 1',560,285]], stairs:[[110,20,320,84],[233,84,320,122]], landing:[296,20,320,122],
+    walls:[[320,20,320,300,145],[320,112,446,112,380],[446,20,446,112],[446,112,620,112,470],[482,112,482,300,160],[320,216,482,216,400],[95,174,320,174,260],[95,174,95,300]], wood:[[95,174,320,300],[482,112,620,300]] },
+};
 const LINKS = [
-  { a:'inet', b:'up', type:'eth', label:'Internet', segs:{ top:'M20 245H53' } },
-  { a:'up', b:'er', type:'eth', label:'Ethernet to ER605 WAN (192.168.1.4)', segs:{ top:'M97 245H163' } },
-  { a:'er', b:'rec', type:'eth', label:'Ethernet', segs:{ top:'M207 238H255V170H298' } },
-  { a:'er', b:'ne', type:'eth', label:'Ethernet', segs:{ top:'M207 245H298' } },
-  { a:'er', b:'pve', type:'eth', label:'Ethernet', segs:{ top:'M207 252H255V320H298' } },
-  { a:'pve', b:'sdc', type:'eth', label:'Attached drive', segs:{ top:'M342 320H438' } },
-  { a:'pve', b:'ubu', type:'virt', label:'Virtual machine on this host', segs:{ top:'M342 312H395V230H528' } },
-  { a:'er', b:'ap', type:'eth', label:'Ethernet', riser:[378,'top','second'], segs:{ top:'M185 223V140H378V30', second:'M378 30V170H330V233' } },
-  { a:'sdc', b:'cb', type:'nfs', label:'NFS mount (runs over the network)', riser:[386,'top','second'], segs:{ top:'M460 298V158H386V30', second:'M386 30V150H515V233' } },
-  { a:'ap', b:'cb', type:'eth', label:'Ethernet (192.168.100.8)', segs:{ second:'M352 262H493' } },
+  { a:'inet', b:'up', type:'eth', label:'Internet', segs:{ top:'M20 115H38' } },
+  { a:'up', b:'er', type:'eth', label:'Ethernet to ER605 WAN 1 (192.168.1.4)', segs:{ top:'M82 115H108' } },
+  { a:'er', b:'rec', type:'eth', label:'Ethernet', segs:{ top:'M152 115H178' } },
+  { a:'er', b:'ne', type:'eth', label:'Ethernet', segs:{ top:'M130 93V87H270V93' } },
+  { a:'er', b:'pve', type:'eth', label:'Ethernet', segs:{ top:'M108 125H100V180H70V193' } },
+  { a:'pve', b:'sdc', type:'eth', label:'Attached drive', segs:{ top:'M92 215H128' } },
+  { a:'pve', b:'ubu', type:'virt', label:'Virtual machine on this host', segs:{ top:'M92 208H110V185H240V193' } },
+  { a:'er', b:'ap', type:'eth', label:'Ethernet', riser:[77,'top','second'], segs:{ top:'M130 93V90H77V28', second:'M77 28V120H400V168' } },
+  { a:'sdc', b:'cb', type:'nfs', label:'NFS mount (runs over the network)', riser:[82,'top','second'], segs:{ top:'M150 193V176H104V88H82V28', second:'M82 28V135H185V223' } },
+  { a:'ap', b:'cb', type:'eth', label:'Ethernet (192.168.100.8)', segs:{ second:'M378 200H320V245H207' } },
   { a:'ap', b:'cb', type:'wifi', label:'Wi-Fi (192.168.100.6)', segs:{} },
-  { a:'ap', b:'exc', type:'eth', label:'Ethernet', riser:[394,'second','first'], segs:{ second:'M352 248H394V30', first:'M394 30V170H135V233' } },
-  { a:'ap', b:'syr', type:'eth', label:'Ethernet', riser:[402,'second','ground'], segs:{ second:'M352 254H402V30', ground:'M402 30V170H135V233' } },
+  { a:'er', b:'exc', type:'eth', label:'Ethernet to ER605 WAN 2', riser:[87,'top','first'], segs:{ top:'M118 93V91H87V28', first:'M87 28V118H350' } },
+  { a:'inet', b:'exc', type:'eth', label:'Excitel internet line', segs:{ first:'M620 118H350' } },
+  { a:'ap', b:'syr', type:'eth', label:'Ethernet', riser:[92,'second','ground'], segs:{ second:'M378 190H335V130H92V28', ground:'M92 28V150H400V185H528' } },
 ];
-const px = v => (v - 320) / 50, pz = v => (v - 200) / 40;
+const HX = 6.5, HZ = 3, px = v => (v - 320) / 600 * 2 * HX, pz = v => (v - 160) / 280 * 2 * HZ;
 const COL = { eth:0x2f6fd6, nfs:0x4fd1c5, wifi:0xf2c063, virt:0xc39bff };
 const CSS = { router:'#6ea8fe', pi:'#7ee0a4', server:'#7ee0a4', virt:'#c39bff', store:'#4fd1c5', pc:'#7ee0a4' };
 
@@ -173,7 +187,7 @@ scene.add(sun);
 const lawn = new THREE.Mesh(new THREE.PlaneGeometry(240, 240), std({ map:T.grass })); lawn.rotation.x = -Math.PI / 2; lawn.position.y = -.02; lawn.receiveShadow = true; scene.add(lawn);
 const road = new THREE.Mesh(new THREE.PlaneGeometry(240, 8), std({ map:T.road })); road.rotation.x = -Math.PI / 2; road.position.set(0, 0, 15); road.receiveShadow = true; scene.add(road);
 for (let x = -110; x < 110; x += 6) box(scene, x, .001, 14.92, x + 3, .012, 15.08, M.trim);
-box(scene, -1.2, 0, 4.5, 1.6, .04, 10.8, M.conc); box(scene, -1.4, 0, 4.5, 1.8, .22, 5.6, M.conc);
+box(scene, -1.2, 0, 6, 1.6, .04, 10.8, M.conc); box(scene, -6.3, 0, 3, -5.1, .04, 6, M.conc); box(scene, -6.3, 0, 5, 1.6, .04, 6, M.conc);
 const plot = [[-10, -8, 10, -7.8], [-10, 10.6, -1.8, 10.8], [2.2, 10.6, 10, 10.8], [-10, -8, -9.8, 10.8], [9.8, -8, 10, 10.8]];
 plot.forEach(([a, b, c, d]) => { box(scene, a, 0, b, c, 1.5, d, M.trim); box(scene, a - .03, 1.5, b - .03, c + .03, 1.6, d + .03, M.accent); });
 [-1.95, 2.35].forEach(x => { box(scene, x - .22, 0, 10.48, x + .22, 2.0, 10.92, M.stone); });
@@ -232,96 +246,109 @@ box(scene, -11.7, 9.3, 11.54, -10.3, 9.42, 11.66, M.dark);
 
 /* Floors */
 const floorGroups = {}, sideGroups = { front:[], back:[], left:[], right:[] }, partitions = [];
-function wallPanel(parent, side, windows, h = FH, floor = true) {
-  const L = (side === 'front' || side === 'back') ? 12 : 9;
+function wallPanel(parent, side, windows, h = FH) {
+  const L = (side === 'front' || side === 'back') ? 2 * HX : 2 * HZ;
   const s = new THREE.Shape(); s.moveTo(0, 0); s.lineTo(L, 0); s.lineTo(L, h); s.lineTo(0, h); s.closePath();
   windows.forEach(w => { const p = new THREE.Path(); p.moveTo(w.u - w.w / 2, w.y); p.lineTo(w.u - w.w / 2, w.y + w.h); p.lineTo(w.u + w.w / 2, w.y + w.h); p.lineTo(w.u + w.w / 2, w.y); p.closePath(); s.holes.push(p); });
   const g = new THREE.Group();
-  if (side === 'front') g.position.set(-6, 0, 4.3);
-  if (side === 'back') g.position.set(-6, 0, -4.5);
-  if (side === 'right') { g.position.set(6, 0, -4.5); g.rotation.y = -Math.PI / 2; }
-  if (side === 'left') { g.position.set(-5.8, 0, -4.5); g.rotation.y = -Math.PI / 2; }
+  if (side === 'front') g.position.set(-HX, 0, HZ - .2);
+  if (side === 'back') g.position.set(-HX, 0, -HZ);
+  if (side === 'right') { g.position.set(HX, 0, -HZ); g.rotation.y = -Math.PI / 2; }
+  if (side === 'left') { g.position.set(-HX + .2, 0, -HZ); g.rotation.y = -Math.PI / 2; }
   g.add(shadow(new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth:.2, bevelEnabled:false }), M.wall)));
   windows.forEach(w => {
     const a = w.u - w.w / 2, b = w.u + w.w / 2, c = w.y, d = w.y + w.h, t = .06, z0 = .04, z1 = .16;
     box(g, a, c, z0, a + t, d, z1, M.frame); box(g, b - t, c, z0, b, d, z1, M.frame);
     box(g, a, c, z0, b, c + t, z1, M.frame); box(g, a, d - t, z0, b, d, z1, M.frame);
-    if (w.door) { box(g, a + t, c + t, .09, b - t, c + .9, .11, M.glass).castShadow = false; }
     box(g, (a + b) / 2 - .025, c, z0 + .03, (a + b) / 2 + .025, d, z1 - .03, M.frame);
-    const gl = box(g, a + t, c + t, .09, b - t, d - t, .11, M.glass); gl.castShadow = false;
-    if (side === 'front' || side === 'right') { const outer = side === 'front' ? [.2, .3] : [-.1, 0]; box(g, a - .1, d, outer[0], b + .1, d + .1, outer[1], M.accent); if (!w.door) box(g, a - .08, c - .08, outer[0], b + .08, c, outer[1], M.trim); }
+    box(g, a + t, c + t, .09, b - t, d - t, .11, M.glass).castShadow = false;
+    if (side === 'front' || side === 'right') { const o = side === 'front' ? [.2, .3] : [-.1, 0]; box(g, a - .1, d, o[0], b + .1, d + .1, o[1], M.accent); box(g, a - .08, c - .08, o[0], b + .08, c, o[1], M.trim); }
   });
   parent.add(g); sideGroups[side].push(g); return g;
 }
-function partition(p, x0, z0, x1, z1, gap) {
+function partition(p, wall, solid) {
+  const [a0, b0, a1, b1, gap] = wall, x0 = px(a0), z0 = pz(b0), x1 = px(a1), z1 = pz(b1);
   const g = new THREE.Group(); p.add(g); partitions.push(g);
-  const horiz = z0 === z1, a = horiz ? x0 : z0, b = horiz ? x1 : z1;
+  const horiz = b0 === b1, a = horiz ? x0 : z0, b = horiz ? x1 : z1, c = gap == null ? null : (horiz ? px(gap) : pz(gap));
   const seg = (s, e) => { if (e - s > .01) horiz ? box(g, s, 0, z0 - .05, e, FH, z0 + .05, M.inner) : box(g, x0 - .05, 0, s, x0 + .05, FH, e, M.inner); };
-  if (gap == null) seg(a, b); else { seg(a, gap - .5); seg(gap + .5, b); }
+  if (c == null) seg(a, b); else { seg(a, c - .45); seg(c + .45, b); box(g, horiz ? c - .45 : x0 - .05, 2.15, horiz ? z0 - .05 : c - .45, horiz ? c + .45 : x0 + .05, FH, horiz ? z0 + .05 : c + .45, M.inner); }
 }
-function slab(p, full) {
-  if (full) { box(p, -6, -.2, -4.5, 6, 0, 4.5, M.conc); return; }
-  box(p, -5.98, -.2, -4.48, -1.4, 0, 4.48, M.conc); box(p, 1.8, -.2, -4.48, 5.98, 0, 4.48, M.conc); box(p, -1.4, -.2, -1.75, 1.8, 0, 4.48, M.conc);
+function slab(p, holes) {
+  const r = holes[0];
+  if (!r) { box(p, -HX + .02, -.2, -HZ + .02, HX - .02, 0, HZ - .02, M.conc); return; }
+  const [a, b, c, d] = [px(r[0]), pz(r[1]), px(r[2]), pz(r[3])];
+  box(p, -HX + .02, -.2, -HZ + .02, a, 0, HZ - .02, M.conc); box(p, c, -.2, -HZ + .02, HX - .02, 0, HZ - .02, M.conc); box(p, a, -.2, d, c, 0, HZ - .02, M.conc);
 }
-function room(p, x0, z0, x1, z1, mat) { const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, .02, z1 - z0), mat); m.position.set((x0 + x1) / 2, .012, (z0 + z1) / 2); m.receiveShadow = true; p.add(m); }
-function stairs(p) {
-  const n = 9, rise = FH / 2 / n, run = 1.85 / n;
-  for (let i = 0; i < n; i++) {
-    box(p, -1.35, 0, -1.85 - (i + 1) * run, -.25, (i + 1) * rise, -1.85 - i * run, M.conc);
-    box(p, -.15, FH / 2, -3.7 + i * run, .95, FH / 2 + (i + 1) * rise, -3.7 + (i + 1) * run, M.conc);
-  }
-  box(p, -1.35, FH / 2 - .12, -4.48, .95, FH / 2, -3.7, M.conc);
-  box(p, -.22, 0, -3.7, -.18, FH / 2, -1.85, M.inner);
+function plate(p, r, mat) { const m = new THREE.Mesh(new THREE.BoxGeometry(px(r[2]) - px(r[0]), .02, pz(r[3]) - pz(r[1])), mat); m.position.set((px(r[0]) + px(r[2])) / 2, .012, (pz(r[1]) + pz(r[3])) / 2); m.receiveShadow = true; p.add(m); }
+function stairs(p, r) {
+  const n = 12, a = px(r[0]), c = px(r[2]), b = pz(r[1]), d = pz(r[3]), H = (r[4] || 1) * FH, run = (c - a) / n;
+  for (let i = 0; i < n; i++) box(p, a + i * run, 0, b, a + (i + 1) * run, (i + 1) * H / n, d, M.conc);
 }
-function bed(p, x, z, rot = 0) { const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rot; p.add(g); box(g, -.8, 0, -1, .8, .3, 1, M.door); box(g, -.75, .3, -.95, .75, .52, .95, M.sheet); box(g, -.8, 0, -1.1, .8, 1, -1, M.door); box(g, -.6, .52, -.92, -.08, .64, -.55, M.fabricA); box(g, .08, .52, -.92, .6, .64, -.55, M.fabricA); box(g, -.75, .52, .1, .75, .56, .95, M.fabricB); }
-function sofa(p, x, z, rot = 0) { const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rot; p.add(g); box(g, -1, 0, -.4, 1, .42, .4, M.fabricA); box(g, -1, .42, -.4, 1, .85, -.2, M.fabricA); box(g, -1.12, 0, -.4, -1, .62, .4, M.fabricA); box(g, 1, 0, -.4, 1.12, .62, .4, M.fabricA); box(g, -.45, .02, .75, .45, .36, 1.25, M.wood); }
-function kitchen(p) { box(p, 2, 0, -4.4, 5.9, .88, -3.8, M.trim); box(p, 2, .88, -4.42, 5.9, .92, -3.78, M.dark); box(p, 2.4, 1.5, -4.48, 5.6, 2.2, -4.15, M.door); box(p, 5.2, 0, -3.7, 5.9, 1.9, -3.05, M.metal); }
+/* Ground floor U-shape: short flight up to a landing, then back the other way in the parallel long flight */
+function uStairs(p, L) {
+  const [lx0, ly0, lx1, ly1] = L.landing, H1 = FH * .35, step = (a, c, b, d, h) => box(p, Math.min(a, c), 0, b, Math.max(a, c), h, d, M.conc);
+  const low = L.stairs[1], up = L.stairs[0], n1 = 5, n2 = 9;
+  for (let i = 0; i < n1; i++) step(px(low[0]) + (px(lx0) - px(low[0])) * i / n1, px(low[0]) + (px(lx0) - px(low[0])) * (i + 1) / n1, pz(low[1]), pz(low[3]), H1 * (i + 1) / (n1 + 1));
+  box(p, px(lx0), 0, pz(ly0), px(lx1), H1, pz(ly1), M.conc);
+  for (let i = 0; i < n2; i++) step(px(lx0) + (px(up[0]) - px(lx0)) * i / n2, px(lx0) + (px(up[0]) - px(lx0)) * (i + 1) / n2, pz(up[1]), pz(up[3]), H1 + (FH - H1) * (i + 1) / n2);
+}
+function bed(p, x, z, rot = 0) { const g = new THREE.Group(); g.position.set(px(x), 0, pz(z)); g.rotation.y = rot; p.add(g); box(g, -.8, 0, -1, .8, .3, 1, M.door); box(g, -.75, .3, -.95, .75, .52, .95, M.sheet); box(g, -.8, 0, -1.1, .8, 1, -1, M.door); box(g, -.6, .52, -.92, -.08, .64, -.55, M.fabricA); box(g, .08, .52, -.92, .6, .64, -.55, M.fabricA); box(g, -.75, .52, .1, .75, .56, .95, M.fabricB); }
+function counter(p, x0, y0, x1, y1) { box(p, px(x0), 0, pz(y0), px(x1), .88, pz(y1), M.trim); box(p, px(x0), .88, pz(y0), px(x1), .92, pz(y1), M.dark); }
+function bathroom(p, x, y) { const X = px(x), Z = pz(y); box(p, X - .22, 0, Z - .28, X + .22, .42, Z + .28, M.sheet); box(p, X - .25, 0, Z - .42, X + .25, .75, Z - .26, M.sheet); }
+const rail = (p, x, z0, z1) => { for (let z = z0; z < z1; z += .16) box(p, x, 0, z, x + .025, 1, z + .025, M.rail); box(p, x - .02, 1, z0, x + .045, 1.06, z1, M.rail); };
 
+const below = { ground:null, first:'ground', second:'first', top:'second' };
+const WIN = [{ u:3, y:.9, w:2, h:1.4 }, { u:10.2, y:.9, w:2, h:1.4 }];
 FLOORS.forEach((f, i) => {
-  const g = new THREE.Group(); g.position.y = i * FH; floorGroups[f.id] = g; scene.add(g);
-  slab(g, i === 0);
-  room(g, -6, -1.75, 6, 4.5, M.marble); room(g, -6, -4.5, -1.4, -1.75, M.wood); room(g, 1.8, -4.5, 6, -1.75, i === 1 ? M.conc : M.wood);
-  stairs(g);
-  // riser shaft: open timber-free duct beside the stairs
-  box(g, 1, 0, -1.8, 1.06, FH, -1.75, M.inner);
-  partition(g, -6, -1.75, -1.4, -1.75, -3); partition(g, 1.8, -1.75, 6, -1.75, 3);
-  partition(g, -1.4, -4.5, -1.4, -1.75); partition(g, 1.8, -4.5, 1.8, -1.75);
-  if (f.id !== 'top') { partition(g, -1.4, -1.75, -1.4, 4.5, 1); partition(g, 1.8, -1.75, 1.8, 4.5, 2.2); }
-
-  const front = [{ u:2.2, y:.9, w:2.1, h:1.45 }, { u:9.9, y:.9, w:2.1, h:1.45 }];
-  if (i === 0) front.push({ u:6.2, y:.05, w:1.5, h:2.35, door:true, main:true });
-  else front.push({ u:6.2, y:.05, w:1.7, h:2.35, door:true });
-  const fw = wallPanel(g, 'front', front);
-  box(fw, 4.85, 0, .2, 5.0, FH, .26, M.stone); box(fw, 7.4, 0, .2, 7.55, FH, .26, M.stone);
-  box(fw, 0, FH - .2, .2, 12, FH, .28, M.trim);
-  if (i === 0) {
-    box(fw, 5.5, .08, .12, 6.9, 2.38, .17, M.door);
-    box(fw, 6.72, 1, .17, 6.78, 1.3, .22, M.metal);
-    box(fw, 4.7, 2.55, .2, 7.7, 2.7, 1.5, M.accent);
+  const g = new THREE.Group(), L = LAYOUT[f.id]; g.position.y = i * FH; floorGroups[f.id] = g; scene.add(g);
+  slab(g, below[f.id] ? LAYOUT[below[f.id]].stairs : []);
+  plate(g, [20, 20, 620, 300], M.marble); (L.wood || []).forEach(r => plate(g, r, M.wood));
+  L.walls.forEach(w => partition(g, w));
+  if (f.id === 'ground') uStairs(g, L); else if (f.id !== 'top') stairs(g, L.stairs[0]);
+  if (f.id === 'top') {
+    stairs(g, L.stairs[0]);
+    // enclosed stair room, then a parapet around the barandah and open roof
+    const backW = new THREE.Group(); g.add(backW); sideGroups.back.push(backW); box(backW, -HX, 0, -HZ, px(302), FH, -HZ + .2, M.wall);
+    const leftW = new THREE.Group(); g.add(leftW); sideGroups.left.push(leftW); box(leftW, -HX, 0, -HZ, -HX + .2, FH, pz(166), M.wall);
+    const para = (side, a, b, c, d) => { const q = new THREE.Group(); g.add(q); sideGroups[side].push(q); box(q, a, 0, b, c, 1, d, M.wall); box(q, a - .03, 1, b - .03, c + .03, 1.07, d + .03, M.accent); };
+    para('front', -HX, HZ - .2, HX, HZ); para('right', HX - .2, -HZ, HX, HZ); para('back', px(302), -HZ, HX, -HZ + .2); para('left', -HX, pz(166), -HX + .2, HZ);
+    box(g, px(302) - .08, 0, HZ - .28, px(302), FH, HZ - .2, M.metal);
   } else {
-    box(fw, 4.6, -.02, .2, 7.8, .12, 1.55, M.conc);
-    for (let u = 4.65; u < 7.8; u += .16) box(fw, u, .12, 1.5, u + .025, 1.05, 1.525, M.rail);
-    for (let z = .3; z < 1.5; z += .16) { box(fw, 4.62, .12, z, 4.645, 1.05, z + .025, M.rail); box(fw, 7.755, .12, z, 7.78, 1.05, z + .025, M.rail); }
-    box(fw, 4.6, 1.05, 1.48, 7.8, 1.1, 1.55, M.rail); box(fw, 4.6, 1.05, .2, 4.66, 1.1, 1.55, M.rail); box(fw, 7.74, 1.05, .2, 7.8, 1.1, 1.55, M.rail);
+    const front = [...WIN]; if (f.id === 'ground') front.push({ u:.8, y:.05, w:1, h:2.3 });
+    const fw = wallPanel(g, 'front', front); box(fw, 0, FH - .2, .2, 2 * HX, FH, .28, M.trim);
+    if (f.id === 'ground') { box(fw, .35, .08, .12, 1.25, 2.3, .17, M.door); box(fw, .1, 2.45, .2, 1.5, 2.6, 1, M.accent); }
+    wallPanel(g, 'back', [{ u:9, y:.95, w:1.4, h:1.2 }, { u:11.5, y:.95, w:1, h:1.2 }]);
+    wallPanel(g, 'right', [{ u:1.5, y:.95, w:1.2, h:1.2 }, { u:4.5, y:.95, w:1.5, h:1.2 }]);
+    if (L.balcony) { const q = new THREE.Group(); g.add(q); sideGroups.left.push(q); rail(q, -HX + .02, -HZ, HZ); box(q, -HX, FH - .15, -HZ, px(L.balcony), FH, HZ, M.trim); }
+    else wallPanel(g, 'left', [{ u:1.5, y:.95, w:1.2, h:1.2 }, { u:4.5, y:.95, w:1.5, h:1.2 }]);
   }
-  wallPanel(g, 'back', [{ u:2.3, y:.95, w:1.5, h:1.25 }, { u:9.9, y:.95, w:1.5, h:1.25 }, { u:5.75, y:1.6, w:.8, h:1.1 }]);
-  wallPanel(g, 'left', [{ u:1.5, y:.95, w:1.4, h:1.3 }, { u:6.2, y:.95, w:1.8, h:1.3 }]);
-  wallPanel(g, 'right', [{ u:1.5, y:.95, w:1.4, h:1.3 }, { u:6.2, y:.95, w:1.8, h:1.3 }]);
 });
 const fl = floorGroups;
-bed(fl.second, -3.7, -1.2 + 2); box(fl.second, -5.7, 0, -4.2, -4.6, 2.2, -3.6, M.door);
-bed(fl.second, 3.9, -4.5 + 1.25); sofa(fl.first, -3.8, 3, Math.PI); kitchen(fl.first); bed(fl.first, 4, 2.2, Math.PI);
-sofa(fl.ground, -3.7, 2.8, Math.PI); bed(fl.ground, 4, 2.2, Math.PI); box(fl.ground, -5.8, .5, .8, -5.74, 1.4, 2.4, M.dark);
-box(fl.top, -5.6, 0, -4.2, -2, 2, -3.7, M.wood); box(fl.top, 2.2, 0, -4.3, 5.6, 1.8, -3.5, M.metal);
+/* The second "System" desk on the second floor has no known device */
+{ const [x0, y0, x1, y1] = LAYOUT.second.desks[0]; box(fl.second, px(x0), .72, pz(y0), px(x1), .77, pz(y1), M.wood); [[x0, y0], [x1 - 3, y0], [x0, y1 - 4], [x1 - 3, y1 - 4]].forEach(([x, y]) => box(fl.second, px(x), 0, pz(y), px(x) + .05, .72, pz(y) + .05, M.metal)); const cx = px((x0 + x1) / 2); box(fl.second, cx - .3, .92, pz(y0) + .05, cx + .3, 1.28, pz(y0) + .09, M.dark); box(fl.second, cx - .03, .77, pz(y0) + .05, cx + .03, .92, pz(y0) + .09, M.metal); }
+{ const [x0, y0, x1, y1] = LAYOUT.first.wardrobe, n = 6, X0 = px(x0), X1 = px(x1), Z0 = pz(y0), Z1 = pz(y1) - .05;
+  box(fl.first, X0, 0, Z0, X1, 2.15, Z1, M.door);
+  for (let i = 1; i < n; i++) { const x = X0 + (X1 - X0) * i / n; box(fl.first, x - .008, .05, Z0 - .006, x + .008, 2.1, Z0, M.dark); if (i % 2) { box(fl.first, x - .07, .95, Z0 - .03, x - .04, 1.25, Z0, M.metal); box(fl.first, x + .04, .95, Z0 - .03, x + .07, 1.25, Z0, M.metal); } } }
+bed(fl.first, 158, 215); bed(fl.first, 570, 250); counter(fl.first, 498, 22, 618, 45); bathroom(fl.first, 305, 280); bathroom(fl.first, 401, 280);
+bed(fl.ground, 207, 240); bed(fl.ground, 560, 240); counter(fl.ground, 323, 22, 443, 45); bathroom(fl.ground, 450, 280); box(fl.ground, px(450), 0, pz(22), px(615), 1.9, pz(50), M.door);
 
-/* Roof terrace */
+/* Roof over the stair room and barandah only; the rest stays open */
 const roof = new THREE.Group(); roof.position.y = 4 * FH; floorGroups.roof = roof; scene.add(roof);
-box(roof, -6.15, -.2, -4.65, 6.15, 0, 4.65, M.conc);
-const rwall = (side, x0, z0, x1, z1) => { const g = new THREE.Group(); roof.add(g); sideGroups[side].push(g); box(g, x0, 0, z0, x1, 1, z1, M.wall); box(g, x0 - .03, 1, z0 - .03, x1 + .03, 1.07, z1 + .03, M.accent); };
-rwall('front', -6, 4.3, 6, 4.5); rwall('back', -6, -4.5, 6, -4.3); rwall('left', -6, -4.5, -5.8, 4.5); rwall('right', 5.8, -4.5, 6, 4.5);
-box(roof, -1.6, 0, -4.3, 2, 2.5, -1.5, M.wall); box(roof, -1.75, 2.5, -4.45, 2.15, 2.65, -1.35, M.accent); box(roof, -.3, 0, -1.47, .7, 2.1, -1.42, M.door);
-const tank = shadow(new THREE.Mesh(new THREE.CylinderGeometry(.62, .62, 1.05, 18), M.tank)); tank.position.set(.2, 3.2, -2.9); roof.add(tank);
-[[3.4, 0], [4.8, 0]].forEach(([x]) => { const p = box(roof, x, .8, -1, x + 1.2, .85, 1.1, M.dark); p.rotation.x = -.45; box(roof, x + .5, 0, .1, x + .6, .8, .2, M.metal); });
+box(roof, -HX - .12, -.2, -HZ - .12, px(302) + .12, 0, HZ + .12, M.conc);
+box(roof, -HX - .14, -.12, -HZ - .14, px(302) + .14, -.01, HZ + .14, M.accent);
+/* Two water tanks on the roof, under a raised solar array that covers the whole roof */
+[px(95), px(230)].forEach(x => { const t = shadow(new THREE.Mesh(new THREE.CylinderGeometry(.62, .62, 1.15, 20), M.tank)); t.position.set(x, .6, -.6); roof.add(t); const lid = new THREE.Mesh(new THREE.CylinderGeometry(.2, .2, .08, 14), M.tank); lid.position.set(x, 1.21, -.6); roof.add(lid); });
+const solarMat = std({ roughness:.25, metalness:.5, map:canvasTex(128, 192, (g, w, h) => { g.fillStyle = '#10264f'; g.fillRect(0, 0, w, h); g.strokeStyle = '#3d5f96'; g.lineWidth = 1; for (let x = 0; x <= w; x += w / 6) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); } for (let y = 0; y <= h; y += h / 10) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); } g.strokeStyle = '#c8ced6'; g.lineWidth = 5; g.strokeRect(0, 0, w, h); }) });
+{ const x0 = -HX - .1, x1 = px(302) + .1, z0 = -HZ - .1, z1 = HZ + .1, cols = 4, rows = 6, gap = .03, h = 2.1, slope = .09;
+  const yAt = z => h + (z0 + z1) / 2 * 0 - (z - (z0 + z1) / 2) * slope;
+  const pw = (x1 - x0) / cols, pd = (z1 - z0) / rows;
+  for (let c = 0; c < cols; c++) for (let r = 0; r < rows; r++) {
+    const z = z0 + (r + .5) * pd, p = shadow(new THREE.Mesh(new THREE.BoxGeometry(pw - gap, .05, pd - gap), solarMat));
+    p.position.set(x0 + (c + .5) * pw, yAt(z), z); p.rotation.x = Math.atan(slope); roof.add(p);
+  }
+  for (let c = 0; c <= cols; c++) { const x = x0 + c * pw, X = Math.max(x0 + .05, Math.min(x1 - .05, x));
+    [z0 + .15, 0, z1 - .15].forEach(z => box(roof, X - .03, 0, z - .03, X + .03, yAt(z) - .03, z + .03, M.metal));
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(.05, .05, Math.hypot(z1 - z0, (z1 - z0) * slope)), M.metal); rail.position.set(X, h - .05, 0); rail.rotation.x = Math.atan(slope); rail.castShadow = true; roof.add(rail); } }
 
 /* Network devices */
 const devObjs = {}, hits = [], leds = [];
@@ -329,7 +356,7 @@ function deviceModel(d) {
   const g = new THREE.Group(); const c = new THREE.Color(CSS[d.kind]);
   const led = (x, y, z) => { const m = new THREE.Mesh(new THREE.SphereGeometry(.022, 8, 6), new THREE.MeshBasicMaterial({ color:c })); m.position.set(x, y, z); g.add(m); leds.push(m); };
   const stand = (h) => { box(g, -.35, 0, -.28, .35, h, .28, M.wood); return h; };
-  if (d.kind === 'router') { const h = stand(.75); box(g, -.26, h, -.17, .26, h + .07, .17, M.dark); [-.2, .2].forEach(x => { const a = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, .32), M.dark); a.position.set(x, h + .22, -.15); g.add(a); }); [-.12, -.04, .04, .12].forEach(x => led(x, h + .04, .175)); }
+  if (d.kind === 'router') { const h = d.elev ? 0 : stand(.75); box(g, -.26, h, -.17, .26, h + .07, .17, M.dark); [-.2, .2].forEach(x => { const a = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, .32), M.dark); a.position.set(x, h + .22, -.15); g.add(a); }); [-.12, -.04, .04, .12].forEach(x => led(x, h + .04, .175)); }
   if (d.kind === 'pi') { const h = stand(.75); box(g, -.13, h, -.09, .13, h + .05, .09, std({ color:0x2d6e43 })); box(g, -.05, h + .05, -.04, .05, h + .08, .04, M.metal); led(.09, h + .07, .06); }
   if (d.kind === 'server') { box(g, -.3, 0, -.4, .3, 1.5, .4, M.dark); for (let y = .25; y < 1.4; y += .28) { box(g, -.27, y, .39, .27, y + .2, .41, M.metal); led(.2, y + .1, .42); } }
   if (d.kind === 'store') { const h = stand(.45); const m = shadow(new THREE.Mesh(new THREE.BoxGeometry(.2, .3, .3), M.dark)); m.position.y = h + .15; g.add(m); led(.05, h + .05, .16); }
@@ -340,7 +367,7 @@ function deviceModel(d) {
 const ring = (c) => { const m = new THREE.Mesh(new THREE.RingGeometry(.72, .82, 40), new THREE.MeshBasicMaterial({ color:c, side:THREE.DoubleSide })); m.rotation.x = -Math.PI / 2; m.position.y = .05; m.visible = false; return m; };
 const labelsEl = document.getElementById('labels');
 Object.entries(DEVICES).forEach(([id, d]) => {
-  const g = deviceModel(d); g.position.set(px(d.x), 0, pz(d.y)); floorGroups[d.floor].add(g);
+  const g = deviceModel(d); g.position.set(px(d.x), d.elev || 0, pz(d.y)); floorGroups[d.floor].add(g);
   const hit = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.8, 1.1), new THREE.MeshBasicMaterial({ visible:false })); hit.position.y = .9; hit.userData.id = id; g.add(hit); hits.push(hit);
   const r = ring(CSS[d.kind]); g.add(r);
   const lab = document.createElement('button'); lab.className = 'lab'; lab.type = 'button'; lab.style.setProperty('--c', CSS[d.kind]);
@@ -364,9 +391,12 @@ LINKS.forEach((l, i) => {
   });
   if (l.riser) {
     const [sx, a, b] = l.riser; const m = new THREE.Mesh(new THREE.CylinderGeometry(.042, .042, 1, 6), mat); scene.add(m);
-    stretched.push({ m, x:px(sx), z:pz(30), a, b });
+    stretched.push({ m, x:px(sx), z:pz(28), a, b });
   }
 });
+/* Cable climbs the wardrobe front to the router on top */
+{ const mat = linkMeshes[LINKS.findIndex(l => l.b === 'exc')].mat, m = new THREE.Mesh(new THREE.CylinderGeometry(.042, .042, 2.2, 6), mat); m.position.set(px(350), 1.15, pz(118)); floorGroups.first.add(m);
+  const t = new THREE.Mesh(new THREE.CylinderGeometry(.042, .042, pz(134) - pz(118), 6), mat); t.rotation.x = Math.PI / 2; t.position.set(px(350), 2.2, (pz(118) + pz(134)) / 2); floorGroups.first.add(t); }
 /* Wi-Fi link to the PC, drawn as an arc of dots */
 { const i = LINKS.findIndex(l => l.type === 'wifi'); const a = DEVICES.ap, b = DEVICES.cb;
   const curve = new THREE.QuadraticBezierCurve3(new THREE.Vector3(px(a.x), 1, pz(a.y)), new THREE.Vector3((px(a.x) + px(b.x)) / 2, 2.6, pz(a.y) - .3), new THREE.Vector3(px(b.x), 1.2, pz(b.y)));
@@ -410,6 +440,16 @@ function select(id, quiet) {
 [['outside', 'Outside'], ['inside', 'See inside']].forEach(([v, n]) => { const b = document.createElement('button'); b.type = 'button'; b.dataset.v = v; b.textContent = n; b.onclick = () => { setMode(v); }; $('modeSeg').appendChild(b); });
 [['all', 'All floors'], ['top', 'Top'], ['second', 'Second'], ['first', 'First'], ['ground', 'Ground']].forEach(([v, n]) => { const b = document.createElement('button'); b.type = 'button'; b.dataset.v = v; b.textContent = n; b.onclick = () => { select(null, true); setFloor(v); }; $('floorSeg').appendChild(b); });
 
+/* Transparent walls: ghost every wall, and stop hiding the ones facing the camera */
+let seeThrough = false;
+function setWalls(on) {
+  seeThrough = on;
+  [M.wall, M.inner].forEach(m => { m.transparent = on; m.opacity = on ? .2 : 1; m.depthWrite = !on; m.needsUpdate = true; });
+  scene.traverse(o => { if (o.isMesh && (o.material === M.wall || o.material === M.inner)) o.castShadow = !on; });
+  $('wallBtn').setAttribute('aria-pressed', on);
+}
+$('wallBtn').onclick = () => setWalls(!seeThrough);
+
 /* ---------- Panel ---------- */
 const status = {}; let checked = false;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
@@ -419,10 +459,10 @@ function render() {
     const svc = new Set(Object.values(DEVICES).flatMap(d => d.services.filter(s => /^https?:/.test(s[1] || '')).map(s => s[1])));
     const up = [...svc].filter(u => status[u]).length;
     const list = [...FLOORS].reverse().map(f => `<h4>${f.name}</h4><ul>${Object.entries(DEVICES).filter(([, d]) => d.floor === f.id).map(([k, d]) => `<li><button class="linkbtn" data-go="${k}">${esc(d.name)}</button>${d.ip ? ` <span class="sub">· ${esc(d.ip)}</span>` : ''}</li>`).join('')}</ul>`).join('');
-    box.innerHTML = `<h3>The house at a glance</h3><p class="sub" style="margin:6px 0">Internet comes in from the street to the top floor. One Ethernet run feeds the AP on the second floor, which feeds the routers below.</p>
+    box.innerHTML = `<h3>The house at a glance</h3><p class="sub" style="margin:6px 0">Two internet lines feed the ER605: Airtel on the top floor and Excitel from the first floor. The ER605 feeds the AP on the second floor, which feeds the Syrotech router.</p>
       <dl class="kv"><dt>Web services answering</dt><dd>${location.protocol === 'https:' ? 'Only checked on a local copy' : checked ? up + ' of ' + svc.size : 'Checking…'}</dd><dt>Wi-Fi networks</dt><dd>Ashutosh, Ashutosh-Secured</dd><dt>Cable colours</dt><dd><span style="color:#6ea8fe">Blue</span> Ethernet, <span style="color:#4fd1c5">teal</span> NFS, <span style="color:#f2c063">amber</span> Wi-Fi, <span style="color:#c39bff">purple</span> virtual</dd></dl>${list}
       <p class="note">Select "See inside" to lift the floors apart, or pick a device to go to it. Drag to orbit, scroll to zoom.</p>
-      <p class="note" style="margin-bottom:0">Devices and addresses come from local.internal (snapshot 5 Nov 2026), without logins. The house, rooms and cable routes are placeholders. A grey dot means no reply to this browser, which doesn't prove a service is down.</p>`;
+      <p class="note" style="margin-bottom:0">Devices and addresses come from local.internal (snapshot 5 Nov 2026), without logins. Rooms follow the hand-drawn plans. Size, exterior, exact device spots and cable routes are estimates. A grey dot means no reply to this browser, which doesn't prove a service is down.</p>`;
     return;
   }
   const d = DEVICES[selected], floor = FLOORS.find(f => f.id === d.floor).name;
@@ -443,7 +483,7 @@ el.addEventListener('pointerup', e => {
   const r = el.getBoundingClientRect(); ndc.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
   ray.setFromCamera(ndc, camera);
   const h = ray.intersectObjects(hits.filter(m => devObjs[m.userData.id].g.parent.visible), false)[0];
-  if (h && mode === 'inside') select(h.object.userData.id);
+  if (h && (seeThrough || mode === 'inside')) select(h.object.userData.id);
 });
 
 /* Layout and loop */
@@ -461,10 +501,10 @@ function frame() {
   if (tween) { const a = 1 - Math.exp(-dt * 3.5); camera.position.lerp(tween.p, a); controls.target.lerp(tween.t, a); if (camera.position.distanceTo(tween.p) < .02) tween = null; }
   controls.update();
   camDir.subVectors(camera.position, controls.target).setY(0).normalize();
-  Object.entries(sideGroups).forEach(([s, gs]) => { const [nx, nz] = NORMALS[s], hide = spread > .02 && nx * camDir.x + nz * camDir.z > .2; gs.forEach(g => { g.visible = !hide; }); });
-  partitions.forEach(g => { g.scale.y = 1 - spread * .62; });
+  Object.entries(sideGroups).forEach(([s, gs]) => { const [nx, nz] = NORMALS[s], hide = !seeThrough && spread > .02 && nx * camDir.x + nz * camDir.z > .2; gs.forEach(g => { g.visible = !hide; }); });
+  partitions.forEach(g => { g.scale.y = seeThrough ? 1 : 1 - spread * .62; });
   stretched.forEach(s => { const lo = new THREE.Vector3(s.x, floorY(s.b) + .05, s.z), hi = new THREE.Vector3(s.x, floorY(s.a) + .05, s.z); stretch(s.m, lo, hi); s.m.visible = floorSel === 'all' ; });
-  stretch(drop, new THREE.Vector3(-11, 9.4, 11.6), new THREE.Vector3(-6, floorY('top') + 2.4, pz(245)));
+  stretch(drop, new THREE.Vector3(-11, 9.4, 11.6), new THREE.Vector3(-6, floorY('top') + 2.4, pz(115)));
   drop.visible = floorSel === 'all' || floorSel === 'top';
   const time = clock.elapsedTime;
   pulses.forEach(p => { p.t = (p.t + dt * p.s) % 1; p.pm.position.copy(p.curve.getPointAt(p.t)); p.pm.position.y += .03; });
@@ -474,7 +514,7 @@ function frame() {
   // labels
   const W = stage.clientWidth, H = stage.clientHeight, placed = [];
   Object.values(devObjs).forEach(o => {
-    const show = spread > .6 && o.g.parent.visible;
+    const show = (seeThrough || spread > .6) && o.g.parent.visible;
     o.lab.style.display = show ? 'block' : 'none'; if (!show) return;
     o.g.getWorldPosition(v); v.y += o.d.kind === 'server' || o.d.kind === 'virt' ? 1.75 : 1.3; v.project(camera);
     placed.push({ o, x:(v.x + 1) / 2 * W, y:(1 - v.y) / 2 * H, w:o.lab.offsetWidth, h:o.lab.offsetHeight });
