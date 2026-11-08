@@ -94,7 +94,7 @@ const DEVICES = {
   pm1:{ name:'Power monitor 1', role:'Small electricity monitor for power grid and inverter 1, inside the top-floor room, not in the rack', kind:'meter', floor:'top', x:72, y:55, ip:'', facts:{ Monitors:'Power grid and inverter', Connection:'Ethernet from the back of Airtel-Ashutosh', Address:'Not recorded yet' }, services:[] },
   pm2:{ name:'Power monitor 2', role:'Small electricity monitor for power grid and inverter 2, inside the top-floor room, not in the rack', kind:'meter', floor:'top', x:72, y:88, ip:'', facts:{ Monitors:'Power grid and inverter', Connection:'Ethernet from the back of Airtel-Ashutosh', Address:'Not recorded yet' }, services:[] },
   ap:{ name:'AC1750 Wi-Fi AP', ssid:'Ashutosh-Secured', role:'Archer A7 in access point mode', kind:'router', floor:'second', x:215, y:170, ip:'192.168.100.7', facts:{ Location: 'Office-room-1, second floor', 'Wi-Fi':'Ashutosh-Secured', Hostname:'wifi-ap.local.internal' }, probe:'http://192.168.100.7', services:[['AP admin','http://192.168.100.7']] },
-  cb:{ name:'creator-base', role:'Admin PC, one machine with two network cards', kind:'pc', floor:'second', x:120, y:168, ip:'.8 wired / .6 Wi-Fi', facts:{ 'Wired (enp5s0)':'192.168.100.8', 'Wi-Fi (wlo1)':'192.168.100.6' }, services:[['AI Team (dev)','http://ai-team-dev.local.internal']] },  ab:{ name:'anshuman-base', role:'PC in Office-room-2, beside the AP room', kind:'pc', floor:'second', x:120, y:250, ip:'', facts:{ Connection:'Ethernet from the back of the AC1750', Address:'Not recorded yet' }, services:[] },
+  cb:{ name:'creator-base', role:'Admin PC, one machine with two network cards', kind:'pc', floor:'second', x:136, y:168, ip:'.8 wired / .6 Wi-Fi', facts:{ 'Wired (enp5s0)':'192.168.100.8', 'Wi-Fi (wlo1)':'192.168.100.6' }, services:[['AI Team (dev)','http://ai-team-dev.local.internal']] },  ab:{ name:'anshuman-base', role:'PC in Office-room-2, beside the AP room', kind:'pc', floor:'second', x:120, y:250, ip:'', facts:{ Connection:'Ethernet from the back of the AC1750', Address:'Not recorded yet' }, services:[] },
   tv:{ name:'32-inch TV', role:'Wall-mounted TV in Room 2, wired to Syrotech', kind:'tv', floor:'ground', x:207, y:288, ip:'', facts:{ Location:'Room 2, ground floor', Connection:'Ethernet from the back of Syrotech', Address:'Not recorded yet' }, services:[] },
   e1:{ name:'Extender (first floor)', ssid:'Ashutosh', wireless:true, role:'Wireless extender of the Ashutosh network', kind:'router', floor:'first', x:392, y:134, elev:WH, flip:true, ip:'', facts:{ Location:'On the wardrobe, beside Excitel-Syrotech', 'Wi-Fi':'Ashutosh', Uplink:'Wireless from Airtel-Ashutosh', Address:'Not recorded yet' }, services:[] },
   e2:{ name:'Extender (ground floor)', ssid:'Ashutosh', wireless:true, role:'Wireless extender of the Ashutosh network', kind:'router', floor:'ground', x:150, y:225, ip:'', facts:{ Location:'Room 2, beside Syrotech', 'Wi-Fi':'Ashutosh', Uplink:'Wireless from Airtel-Ashutosh', Address:'Not recorded yet' }, services:[] },
@@ -108,7 +108,7 @@ const LAYOUT = {
   top: { balcony:56, rooms:[['Balcony',38,240],['Room',60,30],['Barandah',160,285],['Open roof',460,130]], stairs:[], opening:[110,20,302,84], ladder:112,
     walls:[[56,20,56,166],[302,20,302,166],[56,166,302,166,103]] },
   second: { fence:[[136,86,276,86]], rooms:[['Balcony',42,260],['Hall',470,160],['Office-room-1',200,210],['Office-room-2',200,292],['Washroom',298,270]], stairs:[[110,20,302,84]], balcony:56, desks:[[116,157,230,188],[119,222,251,258]],
-    glass:[[150,205],[232,286]], walls:[[56,20,56,136.667,105],[56,136.667,56,150],[56,205,56,232],[56,286,56,300],[56,136.667,251,136.667],[56,218.333,251,218.333],[251,136.667,251,218.333,177],[251,218.333,251,256,236],[251,256,251,300],[251,256,345,256,300],[345,256,345,300]] },
+    glass:[[141,214,2,1],[223,296,2,1]], walls:[[56,20,56,136.667,105],[56,136.667,56,141],[56,214,56,223],[56,296,56,300],[56,136.667,251,136.667],[56,218.333,251,218.333],[251,136.667,251,218.333,177],[251,218.333,251,256,236],[251,256,251,300],[251,256,345,256,300],[345,256,345,300]] },
   first: { fence:[[136,86,276,86]], wardrobe:[264,122,436,146], rooms:[['Balcony',45,260],['Hall',190,135],['Kitchen',560,50],['Room 1',158,270],['Bath 1',305,270],['Bath 2',401,270],['Room 2',560,270]], stairs:[[110,20,302,84]], balcony:62,
     glass:[[165,285]], walls:[[62,20,62,165,100],[62,285,62,300],[62,146,620,146,470],[254,146,254,300],[356,146,356,300],[446,146,446,300],[494,20,494,76]], wood:[[62,146,254,300],[446,146,620,300]] },
   ground: { rooms:[['Entrance',58,240],['Room 2',285,205],['Kitchen',383,60],['Store room',533,92],['Hall',401,165],['Bathroom',404,275],['Room 1',560,285]], stairs:[[110,20,320,84],[233,84,320,122]], landing:[296,20,320,122],
@@ -127,7 +127,7 @@ const LINKS = [
   { a:'pve', b:'sdc', type:'lan', label:'Attached drive', segs:{ top:'M92 215H128' } },
   { a:'pve', b:'ubu', type:'virt', label:'Virtual machine on this host', segs:{ top:'M92 208H110V185H240V193' } },
   { a:'er', b:'ap', type:'eth', label:'Back of the ER605 to front of the AP', riser:[77,'top','second'], segs:{ top:'M130 93V90H77V28', second:'M77 28V120H190V200H215V192' } },
-  { a:'ap', b:'cb', type:'lan', label:'From the back of the AP (192.168.100.8)', segs:{ second:'M210 148V142H165V168H142' } },
+  { a:'ap', b:'cb', type:'lan', label:'From the back of the AP (192.168.100.8)', segs:{ second:'M210 148V142H172V168H158' } },
   { a:'ap', b:'ab', type:'lan', label:'From the back of the AP', segs:{ second:'M220 148V142H240V250H142' } },
   { a:'ap', b:'cb', type:'wifi', label:'Wi-Fi (192.168.100.6)', segs:{} },
   { a:'air', b:'e1', type:'wifi', label:'Wireless extender link (Ashutosh)', segs:{} },
@@ -258,13 +258,15 @@ function partition(p, wall, solid) {
   if (c == null) seg(a, b); else { seg(a, c - .45); seg(c + .45, b); box(g, horiz ? c - .45 : x0 - .05, 2.15, horiz ? z0 - .05 : c - .45, horiz ? c + .45 : x0 + .05, FH, horiz ? z0 + .05 : c + .45, M.inner); }
 }
 /* Full-height window in the balcony wall: frame, centre mullion and glass, with wall above */
-function fullWindow(p, x, y0, y1) {
+function fullWindow(p, x, y0, y1, sillFt, headFt) {
+  // sillFt / headFt: wall left below and above the window, in feet (omitted = floor-to-door-height glass)
   const g = new THREE.Group(); p.add(g); partitions.push(g);
-  const X = px(x), a = pz(y0), b = pz(y1), top = 2.4, t = .05, wall = curFloor === 'second' ? paintWhite : M.inner;
+  const X = px(x), a = pz(y0), b = pz(y1), sill = sillFt ? sillFt * .3048 : 0, top = headFt ? FH - headFt * .3048 : 2.4, t = .05, wall = curFloor === 'second' ? paintWhite : M.inner;
   box(g, X - .05, top, a, X + .05, FH, b, wall);
-  [[a, a + t], [b - t, b], [(a + b) / 2 - t / 2, (a + b) / 2 + t / 2]].forEach(([c, d]) => box(g, X - .03, 0, c, X + .03, top, d, M.frame));
-  box(g, X - .03, 0, a, X + .03, t, b, M.frame); box(g, X - .03, top - t, a, X + .03, top, b, M.frame);
-  box(g, X - .01, t, a + t, X + .01, top - t, b - t, M.glass).castShadow = false;
+  if (sill) box(g, X - .05, 0, a, X + .05, sill, b, wall);
+  [[a, a + t], [b - t, b], [(a + b) / 2 - t / 2, (a + b) / 2 + t / 2]].forEach(([c, d]) => box(g, X - .03, sill, c, X + .03, top, d, M.frame));
+  box(g, X - .03, sill, a, X + .03, sill + t, b, M.frame); box(g, X - .03, top - t, a, X + .03, top, b, M.frame);
+  box(g, X - .01, sill + t, a + t, X + .01, top - t, b - t, M.glass).castShadow = false;
 }
 function slab(p, holes) {
   // cut any stair openings out of the floor with a simple grid of cells
@@ -358,7 +360,7 @@ FLOORS.forEach((f, i) => {
   slab(g, below[f.id] ? LAYOUT[below[f.id]].stairs.slice(0, 1) : []);
   floorFinish(g, below[f.id] ? LAYOUT[below[f.id]].stairs.slice(0, 1) : [], f.id === 'second' ? tileFloor : M.marble); (L.wood || []).forEach(r => plate(g, r, M.wood));
   L.walls.forEach(w => partition(g, w));
-  (L.glass || []).forEach(([y0, y1]) => fullWindow(g, L.balcony, y0, y1));
+  (L.glass || []).forEach(([y0, y1, sill, head]) => fullWindow(g, L.balcony, y0, y1, sill, head));
   // fence along the floor opening where the stairs come up from below
   (L.fence || []).forEach(([x0, y0, x1, y1]) => { const X0 = px(x0), Z0 = pz(y0), X1 = px(x1), Z1 = pz(y1), len = Math.hypot(X1 - X0, Z1 - Z0), n = Math.round(len / .14);
     for (let i = 0; i <= n; i++) { const x = X0 + (X1 - X0) * i / n, z = Z0 + (Z1 - Z0) * i / n; box(g, x - .012, 0, z - .012, x + .012, 1, z + .012, M.rail); }
@@ -394,8 +396,10 @@ FLOORS.forEach((f, i) => {
 FH = UH; curFloor = null;
 const fl = floorGroups;
 /* A person on a chair, facing the desk (-z), hands at the keyboard */
-function seatedPerson(p, x, z, shirt, trousers) {
+const people = [];
+function seatedPerson(p, x, z, shirt, trousers, look = .15) {
   const g = new THREE.Group(); g.position.set(x, 0, z); p.add(g);
+  const P = { g, hands:[], fore:[], phase:Math.random() * 6, look }; people.push(P);
   const skin = std({ color:0xc99a76 }), top = std({ color:shirt }), legs = std({ color:trousers }), hair = std({ color:0x1d1712 }), shoe = M.dark;
   const seatH = .46;
   box(g, -.23, seatH - .05, -.22, .23, seatH, .22, M.dark);                    // seat
@@ -409,16 +413,36 @@ function seatedPerson(p, x, z, shirt, trousers) {
     box(g, sx - .06, 0, -.46, sx + .06, .08, -.24, shoe);                      // shoe
     const upper = box(g, sx * 2.1 - .04, seatH + .28, -.03, sx * 2.1 + .04, seatH + .56, .05, top); // upper arm
     upper.rotation.x = .25;
-    box(g, sx * 1.7 - .035, seatH + .27, -.36, sx * 1.7 + .035, seatH + .33, -.02, top); // forearm
-    box(g, sx * 1.2 - .04, seatH + .28, -.46, sx * 1.2 + .04, seatH + .32, -.36, skin);  // hand
+    P.fore.push(box(g, sx * 1.7 - .035, seatH + .27, -.36, sx * 1.7 + .035, seatH + .33, -.02, top)); // forearm
+    P.hands.push(box(g, sx * 1.2 - .04, seatH + .28, -.46, sx * 1.2 + .04, seatH + .32, -.36, skin));  // hand
   });
-  box(g, -.17, seatH + .12, -.07, .17, seatH + .62, .11, top);                 // torso
+  P.torso = box(g, -.17, seatH + .12, -.07, .17, seatH + .62, .11, top);       // torso
   box(g, -.04, seatH + .62, -.03, .04, seatH + .7, .05, skin);                 // neck
-  const head = shadow(new THREE.Mesh(new THREE.SphereGeometry(.105, 18, 14), skin)); head.position.set(0, seatH + .8, -.01); g.add(head);
-  const cap = shadow(new THREE.Mesh(new THREE.SphereGeometry(.112, 18, 10, 0, 6.283, 0, 1.45), hair)); cap.position.set(0, seatH + .81, .015); cap.rotation.x = .35; g.add(cap);
+  const head = shadow(new THREE.Mesh(new THREE.SphereGeometry(.105, 18, 14), skin)); head.position.set(0, seatH + .8, -.01); P.headGrp = new THREE.Group(); g.add(P.headGrp); P.headGrp.add(head);
+  const cap = shadow(new THREE.Mesh(new THREE.SphereGeometry(.112, 18, 10, 0, 6.283, 0, 1.45), hair)); cap.position.set(0, seatH + .81, .015); cap.rotation.x = .35; P.headGrp.add(cap);
+  P.base = P.hands.map(h => h.position.y);
 }
-seatedPerson(fl.second, px(DEVICES.cb.x), pz(DEVICES.cb.y) + .62, 0x3f6fb5, 0x2c3440);
-seatedPerson(fl.second, px(DEVICES.ab.x), pz(DEVICES.ab.y) + .62, 0xb5533f, 0x38404d);
+seatedPerson(fl.second, px(DEVICES.cb.x), pz(DEVICES.cb.y) + .62, 0x3f6fb5, 0x2c3440, .5);
+/* Office-room-1: small 2 ft wide bed along the window wall, between the window and the desk chair */
+{ const g = new THREE.Group(); fl.second.add(g); const bw = .61, bl = 1.83, X0 = px(56) + .08, Zc = (pz(136.667) + pz(218.333)) / 2;
+  box(g, X0, 0, Zc - bl / 2, X0 + bw, .28, Zc + bl / 2, M.door);
+  box(g, X0 + .02, .28, Zc - bl / 2 + .02, X0 + bw - .02, .45, Zc + bl / 2 - .02, M.sheet);
+  box(g, X0 + .06, .45, Zc - bl / 2 + .06, X0 + bw - .06, .53, Zc - bl / 2 + .38, M.fabricA);
+  box(g, X0 + .02, .45, Zc - .2, X0 + bw - .02, .48, Zc + bl / 2 - .04, M.fabricB);
+  box(g, X0, 0, Zc - bl / 2 - .04, X0 + bw, .7, Zc - bl / 2, M.door); }
+/* Office-room-1: five monitors at creator-base, three across the desk and two above */
+{ const g = new THREE.Group(); g.position.set(px(DEVICES.cb.x), 0, pz(DEVICES.cb.y)); fl.second.add(g);
+  const screenTex = canvasTex(256, 144, (c, w, h) => { c.fillStyle = '#0f1724'; c.fillRect(0, 0, w, h); const col = ['#7ee0a4', '#6ea8fe', '#f2c063', '#c39bff', '#9db0ca']; for (let y = 10; y < h - 6; y += 9) { let x = 10 + (y * 7 % 30); while (x < w - 20) { const l = 8 + (x * y % 40); c.fillStyle = col[(x + y) % 5]; c.globalAlpha = .85; c.fillRect(x, y, Math.min(l, w - 12 - x), 4); x += l + 6; } } c.globalAlpha = 1; });
+  const mon = (x, y, rot, tilt = 0) => { const m = new THREE.Group(); m.position.set(x, y, -.22); m.rotation.set(tilt, rot, 0); g.add(m);
+    box(m, -.3, -.18, -.02, .3, .18, .015, M.dark);
+    const sc = new THREE.Mesh(new THREE.PlaneGeometry(.56, .32), new THREE.MeshBasicMaterial({ map:screenTex, toneMapped:false })); sc.position.z = .017; m.add(sc); };
+  box(g, -.03, .77, -.27, .03, 1.95, -.23, M.metal);           // monitor pole
+  box(g, -1, 1.3, -.27, 1, 1.33, -.23, M.metal);              // lower arm
+  box(g, -.66, 1.7, -.27, .66, 1.73, -.23, M.metal);          // upper arm
+  mon(-.64, 1.15, .4); mon(.64, 1.15, -.4);                    // either side of the existing screen
+  mon(-.33, 1.56, .18, .12); mon(.33, 1.56, -.18, .12);        // top row
+}
+seatedPerson(fl.second, px(DEVICES.ab.x), pz(DEVICES.ab.y) + .62, 0xb5533f, 0x38404d, .12);
 /* Wardrobe, modelled on the user's cabinet photo: blue-grey fluted laminate doors with steel bar handles,
    top lofts, and a prayer unit on the left. Only the two frosted glass panels come from the photo.
    Layout is measured from the straightened photo (1024 x 800 units across the whole front). */
@@ -705,6 +729,12 @@ function frame() {
   stretched.forEach(s => { const lo = new THREE.Vector3(s.x, floorY(s.b) + heightOf(s.b) - .12, s.z), hi = new THREE.Vector3(s.x, floorY(s.a) + (s.a === 'top' ? .05 : heightOf(s.a) - .12), s.z); stretch(s.m, lo, hi); s.m.visible = floorSel === 'all' ; });
   drops.forEach(d => { stretch(d.m, new THREE.Vector3(-8.6, 9.4, 4.2), new THREE.Vector3(px(d.x), floorY('top') + 1.05, HZ)); d.m.visible = floorSel === 'all' || floorSel === 'top'; });
   const time = clock.elapsedTime;
+  people.forEach(P => {               // typing hands, glancing across the screens, breathing
+    P.hands.forEach((h, i) => { h.position.y = P.base[i] + Math.max(0, Math.sin(time * 13 + i * 2.3 + P.phase)) * .012; });
+    P.headGrp.rotation.y = Math.sin(time * .45 + P.phase) * P.look + Math.sin(time * 1.7 + P.phase) * .04;
+    P.headGrp.rotation.x = Math.sin(time * .3 + P.phase) * .05;
+    P.torso.scale.set(1 + Math.sin(time * 1.6 + P.phase) * .015, 1, 1 + Math.sin(time * 1.6 + P.phase) * .02);
+  });
   airDots.forEach(({ l, dots }) => {
     devObjs[l.a].g.getWorldPosition(dotA); devObjs[l.b].g.getWorldPosition(dotB); dotA.y += 1; dotB.y += 1;
     const show = !rackView && floorSel === 'all' && !(spread < .02 && !seeThrough);
