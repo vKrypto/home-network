@@ -94,7 +94,7 @@ const DEVICES = {
   pm1:{ name:'Power monitor 1', role:'Small electricity monitor for power grid and inverter 1, inside the top-floor room, not in the rack', kind:'meter', floor:'top', x:72, y:55, ip:'', facts:{ Monitors:'Power grid and inverter', Connection:'Ethernet from the back of Airtel-Ashutosh', Address:'Not recorded yet' }, services:[] },
   pm2:{ name:'Power monitor 2', role:'Small electricity monitor for power grid and inverter 2, inside the top-floor room, not in the rack', kind:'meter', floor:'top', x:72, y:88, ip:'', facts:{ Monitors:'Power grid and inverter', Connection:'Ethernet from the back of Airtel-Ashutosh', Address:'Not recorded yet' }, services:[] },
   ap:{ name:'AC1750 Wi-Fi AP', ssid:'Ashutosh-Secured', role:'Archer A7 in access point mode', kind:'router', floor:'second', x:215, y:170, ip:'192.168.100.7', facts:{ Location: 'Office-room-1, second floor', 'Wi-Fi':'Ashutosh-Secured', Hostname:'wifi-ap.local.internal' }, probe:'http://192.168.100.7', services:[['AP admin','http://192.168.100.7']] },
-  cb:{ name:'creator-base', role:'Admin PC, one machine with two network cards', kind:'pc', floor:'second', x:136, y:168, ip:'.8 wired / .6 Wi-Fi', facts:{ 'Wired (enp5s0)':'192.168.100.8', 'Wi-Fi (wlo1)':'192.168.100.6' }, services:[['AI Team (dev)','http://ai-team-dev.local.internal']] },  ab:{ name:'anshuman-base', role:'PC in Office-room-2, beside the AP room', kind:'pc', floor:'second', x:120, y:250, ip:'', facts:{ Connection:'Ethernet from the back of the AC1750', Address:'Not recorded yet' }, services:[] },
+  cb:{ name:'creator-base', role:'Admin PC, one machine with two network cards', kind:'pc', floor:'second', x:136, y:168, ip:'.8 wired / .6 Wi-Fi', facts:{ Monitors:'5, see the list below', 'Wired (enp5s0)':'192.168.100.8', 'Wi-Fi (wlo1)':'192.168.100.6' }, services:[['AI Team (dev)','http://ai-team-dev.local.internal']] },  ab:{ name:'anshuman-base', role:'PC in Office-room-2, beside the AP room', kind:'pc', floor:'second', x:120, y:250, ip:'', facts:{ Connection:'Ethernet from the back of the AC1750', Address:'Not recorded yet' }, services:[] },
   tv:{ name:'32-inch TV', role:'Wall-mounted TV in Room 2, wired to Syrotech', kind:'tv', floor:'ground', x:207, y:288, ip:'', facts:{ Location:'Room 2, ground floor', Connection:'Ethernet from the back of Syrotech', Address:'Not recorded yet' }, services:[] },
   e1:{ name:'Extender (first floor)', ssid:'Ashutosh', wireless:true, role:'Wireless extender of the Ashutosh network', kind:'router', floor:'first', x:392, y:134, elev:WH, flip:true, ip:'', facts:{ Location:'On the wardrobe, beside Excitel-Syrotech', 'Wi-Fi':'Ashutosh', Uplink:'Wireless from Airtel-Ashutosh', Address:'Not recorded yet' }, services:[] },
   e2:{ name:'Extender (ground floor)', ssid:'Ashutosh', wireless:true, role:'Wireless extender of the Ashutosh network', kind:'router', floor:'ground', x:150, y:225, ip:'', facts:{ Location:'Room 2, beside Syrotech', 'Wi-Fi':'Ashutosh', Uplink:'Wireless from Airtel-Ashutosh', Address:'Not recorded yet' }, services:[] },
@@ -430,17 +430,63 @@ seatedPerson(fl.second, px(DEVICES.cb.x), pz(DEVICES.cb.y) + .62, 0x3f6fb5, 0x2c
   box(g, X0 + .06, .45, Zc - bl / 2 + .06, X0 + bw - .06, .53, Zc - bl / 2 + .38, M.fabricA);
   box(g, X0 + .02, .45, Zc - .2, X0 + bw - .02, .48, Zc + bl / 2 - .04, M.fabricB);
   box(g, X0, 0, Zc - bl / 2 - .04, X0 + bw, .7, Zc - bl / 2, M.door); }
-/* Office-room-1: five monitors at creator-base, three across the desk and two above */
+/* Office-room-1: five monitors at creator-base, each showing an open app (sample screens) */
+const MONITORS = [
+  { at:'Centre', app:'VS Code', size:'27 in', res:'2560 x 1440' },
+  { at:'Centre top', app:'YouTube (chill music)', size:'24 in', res:'1920 x 1080' },
+  { at:'Left top', app:'Browser', size:'24 in', res:'1920 x 1080' },
+  { at:'Left bottom', app:'Grafana (server monitoring)', size:'24 in', res:'1920 x 1080' },
+  { at:'Right, portrait', app:'Teams and Gmail', size:'24 in', res:'1080 x 1920' },
+];
 { const g = new THREE.Group(); g.position.set(px(DEVICES.cb.x), 0, pz(DEVICES.cb.y)); fl.second.add(g);
-  const screenTex = canvasTex(256, 144, (c, w, h) => { c.fillStyle = '#0f1724'; c.fillRect(0, 0, w, h); const col = ['#7ee0a4', '#6ea8fe', '#f2c063', '#c39bff', '#9db0ca']; for (let y = 10; y < h - 6; y += 9) { let x = 10 + (y * 7 % 30); while (x < w - 20) { const l = 8 + (x * y % 40); c.fillStyle = col[(x + y) % 5]; c.globalAlpha = .85; c.fillRect(x, y, Math.min(l, w - 12 - x), 4); x += l + 6; } } c.globalAlpha = 1; });
-  const mon = (x, y, rot, tilt = 0) => { const m = new THREE.Group(); m.position.set(x, y, -.22); m.rotation.set(tilt, rot, 0); g.add(m);
-    box(m, -.3, -.18, -.02, .3, .18, .015, M.dark);
-    const sc = new THREE.Mesh(new THREE.PlaneGeometry(.56, .32), new THREE.MeshBasicMaterial({ map:screenTex, toneMapped:false })); sc.position.z = .017; m.add(sc); };
-  box(g, -.03, .77, -.27, .03, 1.95, -.23, M.metal);           // monitor pole
-  box(g, -1, 1.3, -.27, 1, 1.33, -.23, M.metal);              // lower arm
-  box(g, -.66, 1.7, -.27, .66, 1.73, -.23, M.metal);          // upper arm
-  mon(-.64, 1.15, .4); mon(.64, 1.15, -.4);                    // either side of the existing screen
-  mon(-.33, 1.56, .18, .12); mon(.33, 1.56, -.18, .12);        // top row
+  const F = 'Arial, sans-serif', T = (w, h, draw) => canvasTex(w, h, draw);
+  const lines = (c, x, y, w, rows, gap, cols) => { for (let r = 0; r < rows; r++) { let xx = x + (r * 13 % 5) * 8; const yy = y + r * gap; while (xx < x + w - 10) { const l = 10 + ((xx * 7 + r * 11) % 46); c.fillStyle = cols[(xx + r) % cols.length]; c.fillRect(xx, yy, Math.min(l, x + w - xx), gap * .45); xx += l + 6; } } };
+  const vscode = T(512, 288, (c, w, h) => {
+    c.fillStyle = '#1e1e1e'; c.fillRect(0, 0, w, h); c.fillStyle = '#333'; c.fillRect(0, 0, 26, h); c.fillStyle = '#252526'; c.fillRect(26, 0, 100, h);
+    c.fillStyle = '#2d2d2d'; c.fillRect(126, 0, w, 20); c.fillStyle = '#1e1e1e'; c.fillRect(130, 2, 90, 18); c.fillStyle = '#ccc'; c.font = `11px ${F}`; c.fillText('index.html', 140, 15);
+    c.fillStyle = '#007acc'; c.fillRect(0, h - 14, w, 14); c.fillStyle = '#fff'; c.font = `9px ${F}`; c.fillText('main  Ln 42, Col 7', 8, h - 4);
+    c.fillStyle = '#9da3a8'; c.font = `9px ${F}`; ['home-network', '  index.html', 'rack', '  index.html', 'README.md'].forEach((t, i) => c.fillText(t, 32, 34 + i * 14));
+    for (let i = 0; i < 18; i++) { c.fillStyle = '#5a5a5a'; c.fillText(String(i + 1), 132, 38 + i * 13); }
+    lines(c, 152, 30, 340, 18, 13, ['#569cd6', '#9cdcfe', '#ce9178', '#4ec9b0', '#dcdcaa', '#c586c0', '#6a9955']);
+  });
+  const youtube = T(512, 288, (c, w, h) => {
+    c.fillStyle = '#0f0f0f'; c.fillRect(0, 0, w, h);
+    const sky = c.createLinearGradient(0, 18, 0, 210); sky.addColorStop(0, '#3b2a6b'); sky.addColorStop(1, '#e48f7a'); c.fillStyle = sky; c.fillRect(20, 18, 340, 192);
+    c.fillStyle = '#1b1530'; c.fillRect(20, 160, 340, 50); c.fillStyle = '#ffd88a'; c.beginPath(); c.arc(270, 70, 18, 0, 7); c.fill();
+    c.fillStyle = '#2a2140'; c.fillRect(80, 120, 120, 70); c.fillStyle = '#ffcf7a'; c.fillRect(96, 134, 26, 20); c.fillRect(150, 134, 26, 20);
+    c.fillStyle = '#f00'; c.fillRect(20, 206, 200, 4); c.fillStyle = '#555'; c.fillRect(220, 206, 140, 4);
+    c.fillStyle = '#fff'; c.font = `bold 14px ${F}`; c.fillText('lofi chill beats to relax / study', 20, 232); c.fillStyle = '#aaa'; c.font = `11px ${F}`; c.fillText('Live  -  2.1K watching', 20, 250);
+    for (let i = 0; i < 5; i++) { c.fillStyle = ['#4a3d7a', '#7a4d5d', '#2f5d6d', '#6d5d2f', '#3d6d4a'][i]; c.fillRect(372, 18 + i * 50, 70, 40); c.fillStyle = '#bbb'; c.fillRect(448, 22 + i * 50, 50, 5); c.fillStyle = '#777'; c.fillRect(448, 32 + i * 50, 36, 4); }
+  });
+  const browser = T(512, 288, (c, w, h) => {
+    c.fillStyle = '#dee1e6'; c.fillRect(0, 0, w, 40); c.fillStyle = '#fff'; c.fillRect(8, 6, 110, 16); c.fillRect(60, 24, 400, 12); c.fillStyle = '#555'; c.font = `9px ${F}`; c.fillText('Docs', 16, 18); c.fillText('https://github.com/vKrypto', 66, 33);
+    c.fillStyle = '#fff'; c.fillRect(0, 40, w, h - 40); c.fillStyle = '#24292f'; c.fillRect(0, 40, w, 26);
+    c.fillStyle = '#ddd'; c.beginPath(); c.arc(60, 110, 28, 0, 7); c.fill(); c.fillStyle = '#222'; c.font = `bold 14px ${F}`; c.fillText('vKrypto', 30, 158);
+    for (let i = 0; i < 6; i++) { const x = 130 + (i % 2) * 185, y = 80 + (i >> 1) * 64; c.strokeStyle = '#d0d7de'; c.strokeRect(x, y, 175, 54); c.fillStyle = '#0969da'; c.fillRect(x + 8, y + 10, 70, 6); c.fillStyle = '#888'; c.fillRect(x + 8, y + 24, 140, 4); c.fillRect(x + 8, y + 32, 100, 4); }
+  });
+  const grafana = T(512, 288, (c, w, h) => {
+    c.fillStyle = '#111217'; c.fillRect(0, 0, w, h); c.fillStyle = '#ccc'; c.font = `bold 11px ${F}`; c.fillText('Node Exporter  -  proxmox-ubuntu-10', 8, 14);
+    const panel = (x, y, pw, ph, col) => { c.fillStyle = '#181b1f'; c.fillRect(x, y, pw, ph); c.strokeStyle = col; c.lineWidth = 1.5; c.beginPath(); for (let i = 0; i <= 40; i++) { const xx = x + 6 + i * (pw - 12) / 40, yy = y + ph * .6 - Math.sin(i * .5 + x) * ph * .18 - ((i * 37 + y) % 11) * ph * .02; i ? c.lineTo(xx, yy) : c.moveTo(xx, yy); } c.stroke(); };
+    [[118, 22, '#73bf69'], [218, 22, '#f2cc0c'], [318, 22, '#5794f2'], [418, 22, '#73bf69']].forEach(([x, , col], i) => { c.fillStyle = '#181b1f'; c.fillRect(x - 110, 22, 92, 50); c.fillStyle = col; c.font = `bold 18px ${F}`; c.fillText(['24%', '62%', '1.8', '23d'][i], x - 92, 56); });
+    panel(8, 80, 245, 98, '#73bf69'); panel(259, 80, 245, 98, '#5794f2'); panel(8, 184, 245, 96, '#ff9830'); panel(259, 184, 245, 96, '#b877d9');
+  });
+  const teams = T(288, 512, (c, w, h) => {
+    c.fillStyle = '#f5f5f5'; c.fillRect(0, 0, w, h / 2); c.fillStyle = '#464775'; c.fillRect(0, 0, w, 24); c.fillStyle = '#fff'; c.font = `bold 11px ${F}`; c.fillText('Teams  -  Home network', 8, 16);
+    for (let i = 0; i < 6; i++) { const me = i % 2, y = 34 + i * 36; c.fillStyle = me ? '#e8ebfa' : '#fff'; c.fillRect(me ? 70 : 10, y, 200, 28); c.fillStyle = '#888'; c.fillRect((me ? 78 : 18), y + 8, 130, 4); c.fillRect((me ? 78 : 18), y + 16, 90, 4); }
+    c.fillStyle = '#fff'; c.fillRect(0, h / 2, w, h / 2); c.fillStyle = '#d93025'; c.fillRect(0, h / 2, w, 24); c.fillStyle = '#fff'; c.fillText('Gmail  -  Inbox', 8, h / 2 + 16);
+    for (let i = 0; i < 9; i++) { const y = h / 2 + 32 + i * 25; c.fillStyle = i < 3 ? '#202124' : '#5f6368'; c.fillRect(10, y, 70, 5); c.fillRect(92, y, 150 - (i * 13 % 40), 5); c.fillStyle = '#e0e0e0'; c.fillRect(0, y + 14, w, 1); }
+  });
+  const mon = (x, y, rot, tilt, tex, sw, sh) => { const m = new THREE.Group(); m.position.set(x, y, -.22); m.rotation.set(tilt, rot, 0); g.add(m);
+    box(m, -sw / 2 - .02, -sh / 2 - .02, -.02, sw / 2 + .02, sh / 2 + .02, .015, M.dark);
+    const sc = new THREE.Mesh(new THREE.PlaneGeometry(sw, sh), new THREE.MeshBasicMaterial({ map:tex, toneMapped:false })); sc.position.z = .017; m.add(sc); };
+  box(g, -.03, .77, -.27, .03, 1.95, -.23, M.metal);          // monitor pole
+  box(g, -.9, 1.33, -.27, .9, 1.36, -.23, M.metal);           // arm
+  // centre: cover the PC's own screen with VS Code
+  const c0 = new THREE.Mesh(new THREE.PlaneGeometry(.66, .37), new THREE.MeshBasicMaterial({ map:vscode, toneMapped:false })); c0.position.set(0, 1.155, -.162); g.add(c0);
+  mon(0, 1.6, 0, .1, youtube, .56, .315);                     // centre top
+  mon(-.66, 1.6, .38, .1, browser, .56, .315);                // left top
+  mon(-.66, 1.155, .38, 0, grafana, .56, .315);               // left bottom
+  mon(.56, 1.3, -.42, 0, teams, .315, .56);                   // right, portrait
 }
 seatedPerson(fl.second, px(DEVICES.ab.x), pz(DEVICES.ab.y) + .62, 0xb5533f, 0x38404d, .12);
 /* Wardrobe, modelled on the user's cabinet photo: blue-grey fluted laminate doors with steel bar handles,
@@ -690,7 +736,7 @@ function render() {
   const svcs = d.services.map(([n, u, note]) => { const t = note ? ` <span class="sub">· ${esc(note)}</span>` : ''; return u ? `<li>${/^https?:/.test(u) ? `<span class="dot${status[u] ? ' up' : ''}"></span>` : ''}<a href="${esc(u)}" target="_blank" rel="noopener">${esc(n)}</a>${t}</li>` : `<li>${esc(n)}${t}</li>`; }).join('');
   const facts = { ...(d.ip && !['pc', 'store'].includes(d.kind) ? { Address:d.ip } : {}), ...d.facts, ...(CHANNEL[d.ssid] ? { 'Wi-Fi channel':CHANNEL[d.ssid] } : {}) };
   box.innerHTML = `<h3>${esc(d.name)}</h3><div class="sub">${esc(d.role)} · ${floor}</div><h4>Details</h4><dl class="kv">${Object.entries(facts).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
-    <h4>Connected to</h4><ul>${conns}</ul>${svcs ? `<h4>Services</h4><ul>${svcs}</ul>` : ''}<p style="margin:12px 0 0"><button class="linkbtn" data-go="">← Whole house</button></p>`;
+    ${selected === 'cb' ? `<h4>Monitors</h4><ul>${MONITORS.map(m => `<li>${esc(m.at)} <span class="sub">· ${esc(m.app)} · ${esc(m.size)}, ${esc(m.res)}</span></li>`).join('')}</ul>` : ''}<h4>Connected to</h4><ul>${conns}</ul>${svcs ? `<h4>Services</h4><ul>${svcs}</ul>` : ''}<p style="margin:12px 0 0"><button class="linkbtn" data-go="">← Whole house</button></p>`;
 }
 $('panel').addEventListener('click', e => { const b = e.target.closest('[data-go]'); if (!b) return; if (b.dataset.go) select(b.dataset.go); else { select(null, true); floorSel = 'all'; sync(); view(); } });
 
