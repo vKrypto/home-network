@@ -23,6 +23,12 @@
   body:not(.panel):not(.rack) #panel { display:none; }
   body:not(.panel):not(.rack) #bar { right:16px; }
   body.nolabels #labels { display:none !important; }
+  #povBtn { touch-action:none; cursor:grab; }
+  #povGhost { position:fixed; z-index:20; pointer-events:none; display:none; color:#f2c063; filter:drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
+  #povHelp { position:absolute; left:50%; bottom:16px; transform:translateX(-50%); display:none; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center;
+             background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:8px 12px; color:var(--muted); font-size:12.5px; }
+  body.pov #povHelp { display:flex; }
+  #povHelp button { background:#22314c; border:1px solid var(--line); color:var(--ink); border-radius:6px; min-width:38px; min-height:36px; font:inherit; cursor:pointer; touch-action:none; }
   body.rack #panel { width:min(48vw, 680px); padding:0; overflow:hidden; }
   body.rack #bar { right:min(calc(48vw + 28px), 708px); }
   #panel iframe { display:block; width:100%; height:100%; border:0; }
@@ -60,12 +66,16 @@
     <h1>Home Network</h1>
     <div class="seg" id="modeSeg" role="group" aria-label="View"></div>
     <div class="seg" id="floorSeg" role="group" aria-label="Floor"></div>
+    <button class="plain-link" id="povBtn" type="button" aria-pressed="false" title="Drag me into the house to walk around"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" style="vertical-align:-4px"><circle cx="12" cy="4.5" r="2.6" fill="currentColor"/><path d="M8 9.5h8l-1 6h-1.6l-.9 7h-1l-.9-7H9z" fill="currentColor"/></svg> Walk</button>
     <button class="plain-link" id="labelBtn" type="button" aria-pressed="true">Labels</button>
     <button class="plain-link" id="panelBtn" type="button" aria-pressed="false">Details</button>
     <button class="plain-link" id="rackBtn" type="button" aria-pressed="false">Rack view</button>
     <button class="plain-link" id="wallBtn" type="button" aria-pressed="false">Transparent walls</button>
   </div>
   <div id="labels"></div>
+  <div id="povHelp"><span>Drag to look · W A S D or arrows to walk · Shift to run</span>
+    <button type="button" data-k="f">▲</button><button type="button" data-k="l">◀</button><button type="button" data-k="b">▼</button><button type="button" data-k="r">▶</button>
+    <button type="button" id="povExit">Exit walk</button></div>
   <svg id="compass" viewBox="-32 -32 64 64" width="72" height="72" role="img" aria-label="Compass"><circle r="30" fill="#101b2e" fill-opacity=".9" stroke="#6f84a3" stroke-width="1.5"/><g id="needle"><path d="M0 -21L6 0H-6Z" fill="#f2495c"/><path d="M0 21L6 0H-6Z" fill="#c9d4e5"/><g font-family="system-ui,sans-serif" font-size="9" font-weight="700" text-anchor="middle" fill="#eef3fb"><text y="-22">N</text><text y="29" fill="#9db0ca">S</text><text x="25" y="3" fill="#9db0ca">E</text><text x="-25" y="3" fill="#9db0ca">W</text></g></g></svg>
   <div id="err">The 3D view couldn't load. It needs internet access for three.js, and WebGL enabled.</div>
 </div>
@@ -489,6 +499,49 @@ const MONITORS = [
   mon(.56, 1.3, -.42, 0, teams, .315, .56);                   // right, portrait
 }
 seatedPerson(fl.second, px(DEVICES.ab.x), pz(DEVICES.ab.y) + .62, 0xb5533f, 0x38404d, .12);
+/* Second-floor office doors, from the user's photo: walnut flush leaf with staggered steel inlay strips
+   (three hanging from the top, three rising from the bottom), teak frame, round knob, round vent above */
+{ const walnut = std({ color:0x3d2519, roughness:.5 }), teak = std({ color:0x9a5a2c, roughness:.5 }), steel = M.metal,
+        vent = std({ color:0xf2f2ee, roughness:.6 });
+  const officeDoor = (gy) => {
+    const g = new THREE.Group(); fl.second.add(g);
+    const X = px(251), c = pz(gy), hw = .45, dh = 2.15;
+    box(g, X - .07, 0, c - hw - .07, X + .07, dh + .07, c - hw, teak);
+    box(g, X - .07, 0, c + hw, X + .07, dh + .07, c + hw + .07, teak);
+    box(g, X - .07, dh, c - hw - .07, X + .07, dh + .07, c + hw + .07, teak);
+    const leaf = new THREE.Group(); leaf.position.set(X, 0, c + hw); leaf.rotation.y = 1.1; g.add(leaf);
+    box(leaf, -.02, .02, -2 * hw + .01, .02, dh - .01, -.01, walnut);
+    [[.36, 1.25, 2.05], [.46, 1.0, 2.05], [.56, 1.45, 2.05], [.6, .08, .75], [.7, .08, 1.0], [.8, .08, .65]].forEach(([f, a, b]) =>
+      [1, -1].forEach(sd => box(leaf, sd * .02, a, -f * 2 * hw - .006, sd * .028, b, -f * 2 * hw + .006, steel)));
+    [1, -1].forEach(sd => box(leaf, sd * .02, 1.0, -2 * hw + .07, sd * .07, 1.05, -2 * hw + .12, steel));   // knob
+    const v = new THREE.Mesh(new THREE.CylinderGeometry(.11, .11, .02, 24), vent);
+    v.rotation.z = Math.PI / 2; v.position.set(X + .06, 2.65, c - .25); g.add(v);
+  };
+  officeDoor(177); officeDoor(236);
+}
+/* Second-floor washroom door and loft, from the user's photo: wenge flush door in a teak frame,
+   steel lever handle and tower bolt, and a dark walnut loft cabinet over it filling up to the ceiling */
+{ const g = new THREE.Group(); fl.second.add(g);
+  const H = UH, Zw = pz(256), c = px(300), hw = .45, dh = 2.15;
+  const wenge = std({ color:0x1e1b1a, roughness:.55 }), teak = std({ color:0x6a3a22, roughness:.5 }),
+        walnut = std({ color:0x3b2a22, roughness:.6 }), steel = M.metal;
+  // frame: two jambs and a head, proud of the wall on both faces
+  box(g, c - hw - .07, 0, Zw - .07, c - hw, dh + .07, Zw + .07, teak);
+  box(g, c + hw, 0, Zw - .07, c + hw + .07, dh + .07, Zw + .07, teak);
+  box(g, c - hw - .07, dh, Zw - .07, c + hw + .07, dh + .07, Zw + .07, teak);
+  // door leaf, hinged on the right jamb and left ajar into the washroom so walk mode can pass
+  const leaf = new THREE.Group(); leaf.position.set(c + hw, 0, Zw); leaf.rotation.y = 1.1; g.add(leaf);
+  box(leaf, -2 * hw + .01, .02, -.02, -.01, dh - .01, .02, wenge);
+  box(leaf, -2 * hw + .05, .95, .02, -2 * hw + .09, 1.12, .035, steel);   // lock plate
+  box(leaf, -2 * hw + .05, 1.0, .035, -2 * hw + .2, 1.03, .06, steel);    // lever
+  box(leaf, -2 * hw + .06, 1.3, .02, -2 * hw + .09, 1.42, .04, steel);    // tower bolt
+  // loft over the door, on the hall side: a long low cabinet with a bar handle, plus a narrow end box
+  const y0 = 2.32, y1 = H - .04, d = .6, xa = px(253), xb = px(338);
+  box(g, xa, y0, Zw - .05 - d, xb, y1, Zw - .05, walnut);
+  box(g, xa + .02, y0 + .02, Zw - .06 - d, xb - .02, y1 - .02, Zw - .05 - d + .005, std({ color:0x4a3328, roughness:.5 }));
+  box(g, (xa + xb) / 2 - .25, y0 + .06, Zw - .09 - d, (xa + xb) / 2 + .25, y0 + .08, Zw - .07 - d, steel);
+  box(g, xb, y0, Zw - .05 - d * .6, px(345) - .05, y1, Zw - .05, walnut);
+}
 /* Wardrobe, modelled on the user's cabinet photo: blue-grey fluted laminate doors with steel bar handles,
    top lofts, and a prayer unit on the left. Only the two frosted glass panels come from the photo.
    Layout is measured from the straightened photo (1024 x 800 units across the whole front). */
@@ -743,12 +796,80 @@ $('panel').addEventListener('click', e => { const b = e.target.closest('[data-go
 /* Click on a device */
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(); let down = null;
 const el = renderer.domElement;
+/* ---------- Walk mode: drag the person icon into the house, then look and walk at eye height ---------- */
+let pov = null;
+const povRay = new THREE.Raycaster(), povKeys = new Set(), EYE = 1.6, Y_AXIS = new THREE.Vector3(0, 1, 0);
+const ghost = document.createElement('div'); ghost.id = 'povGhost'; ghost.innerHTML = $('povBtn').querySelector('svg').outerHTML.replace('width="18" height="18"', 'width="34" height="34"'); document.body.appendChild(ghost);
+const solids = () => { const out = []; scene.traverse(o => { if (o.isMesh && o.visible && o.layers.mask & 1 && o.material && !o.material.transparent) out.push(o); }); return out; };
+function groundAt(x, z, fromY) {            // highest walkable surface just below fromY
+  povRay.set(new THREE.Vector3(x, fromY, z), new THREE.Vector3(0, -1, 0)); povRay.far = 6;
+  const h = povRay.intersectObjects(pov ? pov.solid : solids(), false).find(i => i.face && i.face.normal.clone().transformDirection(i.object.matrixWorld).y > .6);
+  return h ? h.point.y : 0;
+}
+function startPov(clientX, clientY) {
+  const r = el.getBoundingClientRect(); if (clientX < r.left || clientX > r.right || clientY < r.top || clientY > r.bottom) return;
+  ndc.set((clientX - r.left) / r.width * 2 - 1, -(clientY - r.top) / r.height * 2 + 1);
+  povRay.setFromCamera(ndc, camera); povRay.far = 400;
+  const hit = povRay.intersectObjects(solids(), false).find(i => i.face && i.face.normal.clone().transformDirection(i.object.matrixWorld).y > .6);
+  if (!hit) return;
+  // find which floor was hit, then drop the house back together and land on that floor
+  let o = hit.object, fid = null; while (o) { const k = Object.keys(floorGroups).find(k => floorGroups[k] === o); if (k) { fid = k; break; } o = o.parent; }
+  const local = fid ? floorGroups[fid].worldToLocal(hit.point.clone()) : hit.point.clone();
+  if (rackView) setRack(false);
+  select(null, true); mode = 'outside'; floorSel = 'all'; sync(); spread = 0; tween = null;
+  FLOORS.forEach(f => { floorGroups[f.id].position.y = floorY(f.id); }); roof.position.y = floorY('roof'); scene.updateMatrixWorld(true);
+  const y = (fid ? floorY(fid, 0) : 0) + local.y;
+  const yaw = Math.atan2(camera.position.x - hit.point.x, camera.position.z - hit.point.z);
+  pov = { x:local.x, z:local.z, y, yaw:yaw + Math.PI, pitch:0, solid:solids() };
+  controls.enabled = false; camera.fov = 70; camera.updateProjectionMatrix();
+  document.body.classList.add('pov'); $('povBtn').setAttribute('aria-pressed', true);
+}
+function stopPov() {
+  if (!pov) return; pov = null; povKeys.clear(); controls.enabled = true; camera.fov = 38; camera.updateProjectionMatrix();
+  document.body.classList.remove('pov'); $('povBtn').setAttribute('aria-pressed', false); view();
+}
+function blocked(x, z, nx, nz) {           // wall check at knee and chest height
+  const d = new THREE.Vector3(nx - x, 0, nz - z), len = d.length(); if (len < 1e-4) return false; d.normalize();
+  return [.45, 1.2].some(hgt => { povRay.set(new THREE.Vector3(x, pov.y + hgt, z), d); povRay.far = len + .25; return povRay.intersectObjects(pov.solid, false).length > 0; });
+}
+function updatePov(dt) {
+  const f = (povKeys.has('f') ? 1 : 0) - (povKeys.has('b') ? 1 : 0), s = (povKeys.has('r') ? 1 : 0) - (povKeys.has('l') ? 1 : 0);
+  if (f || s) {
+    const sp = (povKeys.has('run') ? 3 : 1.4) * dt, fx = Math.sin(pov.yaw), fz = Math.cos(pov.yaw);
+    let nx = pov.x + (fx * f - fz * s) * sp, nz = pov.z + (fz * f + fx * s) * sp;
+    if (!blocked(pov.x, pov.z, nx, pov.z)) pov.x = nx;
+    if (!blocked(pov.x, pov.z, pov.x, nz)) pov.z = nz;
+  }
+  const g = groundAt(pov.x, pov.z, pov.y + .5);        // step up stairs (up to 0.5 m), fall down openings
+  pov.y = g > pov.y ? g : Math.max(g, pov.y - 9.8 * dt);
+  camera.position.set(pov.x, pov.y + EYE, pov.z);
+  camera.lookAt(pov.x + Math.sin(pov.yaw) * Math.cos(pov.pitch), pov.y + EYE + Math.sin(pov.pitch), pov.z + Math.cos(pov.yaw) * Math.cos(pov.pitch));
+}
+// dragging the icon out of the toolbar
+$('povBtn').addEventListener('pointerdown', e => {
+  if (pov) { stopPov(); return; }
+  e.preventDefault(); ghost.style.display = 'block';
+  const move = ev => { ghost.style.left = ev.clientX - 17 + 'px'; ghost.style.top = ev.clientY - 30 + 'px'; };
+  const up = ev => { removeEventListener('pointermove', move); removeEventListener('pointerup', up); ghost.style.display = 'none'; startPov(ev.clientX, ev.clientY); };
+  move(e); addEventListener('pointermove', move); addEventListener('pointerup', up);
+});
+$('povExit').onclick = stopPov;
+const KEYMAP = { KeyW:'f', ArrowUp:'f', KeyS:'b', ArrowDown:'b', KeyA:'l', ArrowLeft:'l', KeyD:'r', ArrowRight:'r', ShiftLeft:'run', ShiftRight:'run' };
+addEventListener('keydown', e => { if (!pov) return; if (e.code === 'Escape') return stopPov(); if (KEYMAP[e.code]) { povKeys.add(KEYMAP[e.code]); e.preventDefault(); } });
+addEventListener('keyup', e => { if (KEYMAP[e.code]) povKeys.delete(KEYMAP[e.code]); });
+document.querySelectorAll('#povHelp [data-k]').forEach(b => { const k = b.dataset.k; b.addEventListener('pointerdown', () => povKeys.add(k)); ['pointerup', 'pointerleave', 'pointercancel'].forEach(t => b.addEventListener(t, () => povKeys.delete(k))); });
+{ let look = null;                         // drag on the scene to look around
+  el.addEventListener('pointerdown', e => { if (pov) look = [e.clientX, e.clientY]; });
+  addEventListener('pointermove', e => { if (!pov || !look) return; pov.yaw -= (e.clientX - look[0]) * .004; pov.pitch = Math.max(-1.2, Math.min(1.2, pov.pitch - (e.clientY - look[1]) * .004)); look = [e.clientX, e.clientY]; });
+  addEventListener('pointerup', () => { look = null; }); }
+
 el.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
 el.addEventListener('pointerup', e => {
   if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 5) return;
   const r = el.getBoundingClientRect(); ndc.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
   ray.setFromCamera(ndc, camera);
   const h = ray.intersectObjects(hits.filter(m => { const g = devObjs[m.userData.id].g; return g.parent.visible && g.visible; }), false)[0];
+  if (pov) return;
   if (h && (seeThrough || mode === 'inside')) select(h.object.userData.id);
 });
 
@@ -764,8 +885,9 @@ function frame() {
   spread += ((inside ? 1 : 0) - spread) * Math.min(1, dt * 3.5);
   if (Math.abs(spread - (inside ? 1 : 0)) < .001) spread = inside ? 1 : 0;
   FLOORS.forEach(f => { floorGroups[f.id].position.y = floorY(f.id); }); roof.position.y = floorY('roof');
+  if (pov) { spread = 0; tween = null; }
   if (tween) { const a = 1 - Math.exp(-dt * 3.5); camera.position.lerp(tween.p, a); controls.target.lerp(tween.t, a); if (camera.position.distanceTo(tween.p) < .02) tween = null; }
-  controls.update();
+  if (pov) updatePov(dt); else controls.update();
   /* North is the back wall of the house (-z) */
   $('needle').setAttribute('transform', `rotate(${THREE.MathUtils.radToDeg(controls.getAzimuthalAngle())})`);
   camDir.subVectors(camera.position, controls.target).setY(0).normalize();
@@ -832,7 +954,7 @@ function setView(name) {
   labelsEl.style.display = name === 'network' ? '' : 'none';
 }
 setView('network');
-window.__home = { select, setMode, setFloor, setRack, setView };
+window.__home = { select, setMode, setFloor, setRack, setView, startPov, stopPov };
 sync(); render(); frame();
 </script>
 </body>
